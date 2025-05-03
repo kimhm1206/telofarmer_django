@@ -62,7 +62,7 @@ class NotifyConsumer(AsyncWebsocketConsumer):
         global last_running_time, last_internet_state,last_data
 
         data = json.loads(text_data)
-        print(f"📨 Notify 메시지 수신됨: {data}")
+        print(f"📨 Notify 메시지 수신됨 : {data}")
 
         if data.get("cmd") == "running":
             last_running_time = datetime.now()

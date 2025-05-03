@@ -1,5 +1,5 @@
 # views.py
-import json, os, csv, platform, subprocess
+import json, os, csv, platform
 import shutil
 import pandas as pd
 from datetime import datetime, timedelta
@@ -85,10 +85,10 @@ def system_update(request):
 
         if os_type == 'windows':
             script_path = os.path.join(script_dir, 'update_windows.bat')
-            subprocess.Popen(["cmd.exe", "/c", script_path])
+            os.system(f'start "" "{script_path}"')
         elif os_type == 'linux':
             script_path = os.path.join(script_dir, 'update_rpi.sh')
-            subprocess.Popen(["bash", script_path])
+            os.system(f"bash {script_path} &")  # 백그라운드 실행
         else:
             return JsonResponse({"status": "error", "message": "Unsupported OS"})
 

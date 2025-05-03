@@ -1,5 +1,5 @@
 # views.py
-import json, os, csv, platform
+import json, os, csv, platform, subprocess
 import shutil
 import pandas as pd
 from datetime import datetime, timedelta
@@ -81,15 +81,17 @@ def signup_view(request):
 
 def system_update(request):
     try:
-        os_type = platform.system().lower()  # 'windows' or 'linux'
+        os_type = platform.system().lower()
         script_dir = os.path.join(BASE_DIR, 'scripts')
 
         if os_type == 'windows':
             script_path = os.path.join(script_dir, 'update_windows.bat')
             os.system(f'start "" "{script_path}"')
+
         elif os_type == 'linux':
             script_path = os.path.join(script_dir, 'update_rpi.sh')
-            os.system(f"bash {script_path} &")  # 백그라운드 실행
+            subprocess.Popen(["bash", script_path], start_new_session=True)
+
         else:
             return JsonResponse({"status": "error", "message": "Unsupported OS"})
 

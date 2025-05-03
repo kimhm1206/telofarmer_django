@@ -8,6 +8,7 @@ if [ -n "$DISPLAY" ]; then
     USE_GUI=1
 fi
 
+
 echo "🔄 Daphne 종료"
 pkill -f "daphne config.asgi:application"
 

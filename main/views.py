@@ -92,6 +92,7 @@ def system_update(request):
             script_path = os.path.join(script_dir, 'update_rpi.sh')
             subprocess.Popen(["bash", script_path], start_new_session=True)
 
+
         else:
             return JsonResponse({"status": "error", "message": "Unsupported OS"})
 

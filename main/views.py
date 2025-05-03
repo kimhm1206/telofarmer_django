@@ -78,6 +78,7 @@ def signup_view(request):
         form = TelofarmSignupForm()
     return render(request, "signup.html", {"form": form})
 
+
 def system_update(request):
     try:
         os_type = platform.system().lower()  # 'windows' or 'linux'

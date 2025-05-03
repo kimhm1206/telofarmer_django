@@ -11,12 +11,17 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
+import os, platform
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-USER_DOCS = os.path.join(os.path.expanduser("~"), "Documents", "telofarm", "telofarmer")
+
+if platform.system() == "Windows":
+    USER_DOCS = os.path.join(os.path.expanduser("~"), "Documents", "telofarm", "telofarmer")
+else:
+    USER_DOCS = "/home/telofarm/Documents/telofarm/telofarmer"
+    
 DATA_DIR = os.path.join(USER_DOCS, "data")
 LOG_DIR = os.path.join(USER_DOCS, "log")
 SYSLOG_DIR = os.path.join(USER_DOCS, "systemlog")

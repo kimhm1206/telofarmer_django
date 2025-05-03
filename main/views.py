@@ -10,7 +10,7 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.core.files.storage import default_storage
-from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH
+from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH,BASE_DIR
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from .forms import TelofarmSignupForm
@@ -81,20 +81,18 @@ def signup_view(request):
 def system_update(request):
     try:
         os_type = platform.system().lower()  # 'windows' or 'linux'
-
-        # scripts 폴더 내의 update 파일 경로 설정
-        script_dir = os.path.join(os.getcwd(), 'scripts')
+        script_dir = os.path.join(BASE_DIR, 'scripts')
 
         if os_type == 'windows':
             script_path = os.path.join(script_dir, 'update_windows.bat')
-            subprocess.Popen(["cmd.exe", "/c", script_path], shell=True)
-
+            subprocess.Popen(["cmd.exe", "/c", script_path])
         elif os_type == 'linux':
             script_path = os.path.join(script_dir, 'update_rpi.sh')
-            subprocess.Popen(["bash", script_path], shell=True)
+            subprocess.Popen(["bash", script_path])
+        else:
+            return JsonResponse({"status": "error", "message": "Unsupported OS"})
 
         return JsonResponse({"status": "ok", "message": f"Update script launched for {os_type}"})
-
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
 

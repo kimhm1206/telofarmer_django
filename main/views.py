@@ -55,6 +55,7 @@ def login_process(request):
 
 def setting_view(request):
     setting_path = os.path.join(SETTING_PATH)
+    print(setting_path)
     with open(setting_path, 'r', encoding='utf-8') as f:
         setting = json.load(f)
 

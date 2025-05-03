@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TELOFARM 회원가입</title>
+    <style>
+        body {
+            text-align: center;
+            margin-top: 80px;
+            font-family: sans-serif;
+            background-color: #fff;
+        }
+        .logo {
+            width: 150px;
+            margin-bottom: 10px;
+        }
+        .subtext {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-container {
+            display: inline-block;
+            text-align: left;
+            padding: 30px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+            width: 400px;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+        }
+        input {
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn-block {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .btn-block button {
+            margin: 5px;
+            padding: 10px 30px;
+        }
+    </style>
+</head>
+<body>
+    <img class="logo" src="{% static 'logo.JPG' %}" alt="TELOFARM"><br>
+    <div class="subtext">텔로팜 자동관수 회원가입</div>
+
+    {% if messages %}
+      <script>
+        {% for message in messages %}
+          alert("{{ message|escapejs }}");
+        {% endfor %}
+      </script>
+    {% endif %}
+
+    <div class="form-container">
+        <form method="post">
+            {% csrf_token %}
+            <label>아이디</label>
+            {{ form.username }}
+
+            <label>이메일</label>
+            {{ form.email }}
+
+            <label>비밀번호</label>
+            {{ form.password }}
+
+            <label>비밀번호 확인</label>
+            {{ form.confirm_password }}
+
+            <label>텔로팜 직원 코드</label>
+            {{ form.staff_code }}
+
+            <div class="btn-block">
+                <button type="submit" style="background-color: black; color: white;">회원가입</button>
+                <button type="button" onclick="window.location.href='/'">취소</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

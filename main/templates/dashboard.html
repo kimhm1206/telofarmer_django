@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+{% block content %}
+
+<div style="margin-top: 40px; margin-bottom: 20px;display: flex; align-items: center;">
+  <h2 style="margin: 0;">💧 관수 현황</h2>
+  <button onclick="alert('전체 수동 관수 시작'); sendManualToDjango('all')"style="
+    margin-left: 30px;
+    background-color: #4fc3f7;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  ">
+    전체 수동 관수
+  </button>
+  <button onclick="alert('관수 비상 정지 시작'); sendEmergency()"style="
+    margin-left: 30px;
+    background-color: #ff0000;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  ">
+    관수 비상 정지
+  </button>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px;">
+  {% for irr in irrigation_info %}
+    <div style="
+      background-color: rgba(224,247,250, 1);
+      padding: 16px 20px;
+      border-radius: 12px;
+      width: 240px;
+      height: 260px;
+      min-height: 260px;
+      max-height: 260px;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    ">
+    <!-- 오른쪽 상단: 상태 램프 -->
+    <div style="position: absolute; top: 12px; right: 12px;">
+      <span id="irrigation-lamp-{{ irr.channel }}" class="status-dot" style="
+        background-color: #ccc;
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        box-shadow: 0 0 4px #ccc;
+      "></span>
+    </div>
+
+    <h4 style="margin: 0 0 10px 0;">
+      관수 ch{{ irr.channel }}
+    </h4>
+
+    <p style="margin: 4px 0;">관수 모드 : {% if irr.mode == "sensor" %}센서{% else %}시간{% endif %}</p>
+    <p style="margin: 4px 0;">오늘의 관수 횟수 : {{ irr.count }}</p>
+    <p style="margin: 4px 0;">최근 관수 시간 : {{ irr.last_time }}</p>
+    {% if irr.mode == "timer" %}
+      <p style="margin: 4px 0;">다음 관수 시간 : {{ irr.next_time }}</p>
+    {% elif irr.mode == "sensor" %}
+      <p style="margin: 4px 0;">수분 소모량 : {{ irr.percent }}%</p>
+    {% endif %}
+
+    {% if irr.mode == "sensor" %}
+    <div style="margin: 10px 0; display: flex; justify-content: center;">
+      <canvas id="gauge{{ irr.channel }}" width="80" height="80"></canvas>
+    </div>
+    {% endif %}
+
+    <div style="
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+    ">
+      <button onclick="alert('ch{{ irr.channel }} 수동관수 시작'); sendManualToDjango('{{ irr.channel }}')"style="
+        background-color: #eee;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+      ">수동 관수</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<h2 style="margin-top: 40px;">💡 LED 현황</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 20px;">
+  {% for led in led_info %}
+    <div style="
+      background-color: #fff3e0;
+      padding: 16px 20px;
+      border-radius: 12px;
+      width: 240px;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    ">
+      <div id="led-lamp-{{ led.channel }}" style="
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #ccc;
+      box-shadow: 0 0 4px #ccc;
+    "></div>
+
+      <h4 style="margin: 0 0 10px 0;">
+        LED ch{{ led.channel }}
+      </h4>
+      <p style="margin: 2px 0;">LED 시작 시간 : {{ led.on }}</p>
+      <p style="margin: 2px 0;">LED 종료 시간 : {{ led.off }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+<script src="https://bernii.github.io/gauge.js/dist/gauge.min.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  // 🔧 Gauge.js 초기화
+  {% for irr in irrigation_info %}
+    {% if irr.mode == "sensor" %}
+      const opts{{ irr.channel }} = {
+        angle: 0.2,
+        lineWidth: 0.35,
+        radiusScale: 1,
+        pointer: {
+          length: 0.6,
+          strokeWidth: 0.035,
+          color: "#ff0000"
+        },
+        limitMax: false,
+        limitMin: false,
+        highDpiSupport: true
+      };
+      const target{{ irr.channel }} = document.getElementById("gauge{{ irr.channel }}");
+      const gauge{{ irr.channel }} = new Gauge(target{{ irr.channel }}).setOptions(opts{{ irr.channel }});
+      gauge{{ irr.channel }}.maxValue = 100;
+      gauge{{ irr.channel }}.setMinValue(0);
+      gauge{{ irr.channel }}.animationSpeed = 32;
+      gauge{{ irr.channel }}.set({{ irr.percent|default:0 }});
+    {% endif %}
+  {% endfor %}
+
+  // ✅ notify_socket_ready 이벤트 핸들러 등록
+  window.addEventListener("notify_socket_ready", () => {
+    console.log("✅ WebSocket 준비됨 (dashboard)");
+
+    // 🔄 WebSocket 메시지 수신 시 처리
+    window.addEventListener("message_from_socket", (event) => {
+      const data = event.detail;
+      console.log("📨 수신 데이터:", data);
+
+      if (data.cmd === "data") {
+        const irrigation = data.data.irrigation || {};
+        const led = data.data.led || {};
+
+        for (const [key, val] of Object.entries(irrigation)) {
+          const ch = key.replace("ch", "");
+          const el = document.getElementById("irrigation-lamp-" + ch);
+          if (el) {
+            el.style.backgroundColor = val.state === 1 ? "limegreen" : "#ccc";
+            el.style.boxShadow = `0 0 4px ${val.state === 1 ? "limegreen" : "#ccc"}`;
+          }
+        }
+
+        for (const [key, val] of Object.entries(led)) {
+          const ch = key.replace("ch", "");
+          const el = document.getElementById("led-lamp-" + ch);
+          if (el) {
+            el.style.backgroundColor = val.state === 1 ? "limegreen" : "#ccc";
+            el.style.boxShadow = `0 0 4px ${val.state === 1 ? "limegreen" : "#ccc"}`;
+          }
+        }
+      }
+
+      if (data.cmd === "logupdate") {
+        console.log("🔁 로그 업데이트 수신됨 → 새로고침");
+        location.reload();
+      }
+    });
+  });
+
+  // ✅ 수동 관수 명령 전송 함수
+  window.sendManualToDjango = function(ch) {
+    if (!window.notifySocket || window.notifySocket.readyState !== WebSocket.OPEN) {
+      alert("❌ WebSocket 연결되지 않음");
+      return;
+    }
+
+    const message = { cmd: "manual", ch: ch };
+    window.notifySocket.send(JSON.stringify(message));
+    console.log("📤 수동 관수 명령 전송:", message);
+  };
+
+  // ✅ 비상 정지 명령 전송 함수
+  window.sendEmergency = function() {
+    if (!window.notifySocket || window.notifySocket.readyState !== WebSocket.OPEN) {
+      alert("❌ WebSocket 연결되지 않음");
+      return;
+    }
+
+    const message = { cmd: "emergency" };
+    window.notifySocket.send(JSON.stringify(message));
+    console.log("📤 비상 정지 명령 전송:", message);
+  };
+});
+</script>
+
+
+
+
+{% endblock %}

@@ -1,0 +1,71 @@
+<div style="display: flex; overflow-x: auto; gap: 20px; padding-bottom: 10px;">
+    {% for item in irrigation_info %}
+      <div style="
+        background-color: #e0f7fa;
+        padding: 20px;
+        border-radius: 12px;
+        width: 600px;
+        height: 500px;
+        min-width: 600px;
+        overflow: auto;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        flex: 0 0 auto;
+      ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin-top: 0;">관수 {{ item.channel }}ch</h3>
+          <a href="/log/download/{{ item.channel }}/" style="
+            background-color: #0288d1;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-decoration: none;
+          ">📥 다운로드</a>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <thead>
+            <tr style="background-color: #b2ebf2;">
+              {% for col in item.headers %}
+                <th style="padding: 8px; border: 1px solid #aaa;">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in item.rows %}
+              <tr>
+                {% for val in row %}
+                  <td style="padding: 6px; border: 1px solid #ccc;">{{ val }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  </div>
+  
+  <h2 style="margin-top: 50px;">🖥️ 시스템 로그</h2>
+  <div style="margin-top: 10px;">
+    <textarea id="syslog-area" readonly style="width: 100%; height: 300px; padding: 10px; font-size: 13px; font-family: monospace; background-color: #f0f0f0; border-radius: 6px; border: 1px solid #ccc; white-space: pre-wrap; overflow-y: scroll;">
+  {{ system_log }}
+    </textarea>
+  </div>
+  
+  <script>
+    window.addEventListener("load", () => {
+      const syslog = document.getElementById("syslog-area");
+      if (syslog) syslog.scrollTop = syslog.scrollHeight;
+    });
+  
+    // ✅ NotifyConsumer로부터 logupdate 신호 수신 시 새로고침
+    window.addEventListener("notify_socket_ready", () => {
+      window.addEventListener("message_from_socket", (event) => {
+        const data = event.detail;
+        if (data.cmd === "logupdate") {
+          console.log("🔄 로그 업데이트 요청 수신 → 페이지 새로고침");
+          location.reload();
+        }
+      });
+    });
+  </script>
+  

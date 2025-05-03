@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}로그 보기{% endblock %}
+{% block content %}
+
+<h2 style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+  💧 관수 로그
+  <button onclick="refreshLogs()" style="
+    background-color: #4fc3f7;
+    color: white;
+    font-weight: bold;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  ">새로고침</button>
+</h2>
+
+<div id="log-content">
+  {% include "partials/log_content.html" %}
+</div>
+
+<script>
+  function refreshLogs() {
+    fetch("/log/refresh/")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("log-content").innerHTML = data.html;
+
+        const syslog = document.getElementById("syslog-area");
+        if (syslog) syslog.scrollTop = syslog.scrollHeight;
+      })
+      .catch(err => console.error("[ERROR] 로그 새로고침 실패:", err));
+  }
+</script>
+
+{% endblock %}

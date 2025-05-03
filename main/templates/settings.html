@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load static %}
+{% load setting_tags %}
+
+{% block title %}설정{% endblock %}
+
+{% block style %}
+<style>
+    label { display: inline-block; width: 160px; margin-top: 10px; }
+    select, input[type="text"], input[type="number"], input[type="time"], textarea {
+        padding: 4px; width: 180px; margin-bottom: 10px;
+    }
+    .block { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .row { display: flex; gap: 20px; margin-bottom: 30px; }
+    .top-buttons { margin-bottom: 20px; }
+    .top-buttons button {
+        padding: 6px 15px;
+        margin-right: 10px;
+        border: none;
+        border-radius: 4px;
+        color: white;
+        font-weight: bold;
+    }
+    .save-btn { background-color: #888; }
+    .cancel-btn { background-color: #e74c3c; }
+    .submit-btn { background-color: #2ecc71; }
+    .detail-button { margin-left: 10px; padding: 2px 8px; font-size: 12px; }
+    textarea { resize: vertical; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 style="margin-top: 0;">
+    <img src="{% static 'dd.png' %}" alt="logo" style="height: 36px; vertical-align: middle; margin-right: 1px;">
+    Telofarm Control System 설정
+</h2>
+<form method="post">
+    {% csrf_token %}
+    <div class="top-buttons">
+        <a href="/settings/download/">
+            <button type="button" class="save-btn">저장 값 추출</button>
+        </a>
+        <label class="upload-btn" style="cursor: pointer; background: #3498db; padding: 6px 12px; color: white; border-radius: 4px;">
+            📤 저장 값 덮어쓰기
+            <input type="file" accept=".json" onchange="uploadSettingJson(this)" style="display:none">
+        </label>
+    </div>
+
+    <div class="row">
+        <div class="block" style="flex: 1;">
+            <h3>TelofarmControl 설정</h3>
+
+            <label>릴레이보드 타입</label>
+            <select name="relayboard_type" onchange="autoSave(this)">
+                <option value="4port" {% if setting.relayboard_type == '4port' %}selected{% endif %}>4PORT</option>
+                <option value="8port" {% if setting.relayboard_type == '8port' %}selected{% endif %}>8PORT</option>
+            </select><br>
+
+            <label>기상센서 포트</label>
+            <select name="sensor_ports" onchange="autoSave(this)">
+                {% for i in "123456789" %}
+                <option value="com{{ i }}" {% if setting.sensor_ports == "com"|add:i %}selected{% endif %}>com{{ i }}</option>
+                {% endfor %}
+            </select><br>
+
+            <label>테스트 모드</label>
+            <input type="checkbox" name="test_mode" {% if setting.test_mode %}checked{% endif %}>
+        </div>
+
+        {{ setting|json_script:"setting-data" }}
+
+        <div class="block" style="flex: 1;">
+            <h3>관수 채널 설정</h3>
+            {% for i in "1234" %}
+            <label>Ch{{ i }} 사용</label>
+            <input type="checkbox" name="irrigation_channels_{{ i }}" {% if setting.irrigation_channels|get_item:i %}checked{% endif %}>
+            <button type="button" class="detail-button" onclick="openIrrigationDetail({{ i }})">상세설정 열기</button><br>
+            {% endfor %}
+        </div>
+
+        <div class="block" style="flex: 1;">
+            <h3>LED 채널 설정</h3>
+            {% for i in "1234" %}
+            <label>LED Ch{{ i }} 사용</label>
+            <input type="checkbox" name="led_channels_{{ i }}" {% if setting.led_channels|get_item:i %}checked{% endif %}>
+            <button type="button" class="detail-button" onclick="openLedDetail({{ i }})">상세설정 열기</button><br>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="detail-area"></div>
+</form>
+
+
+<script>
+
+    function autoSave(element) {
+        const name = element.name;
+        const value = element.type === 'checkbox' ? element.checked : element.value;
+        const payload = {};
+    
+        if (name.startsWith("irrigation_channels_")) {
+            const ch = name.split("_")[2];
+            payload.irrigation_channels = { [ch]: value };
+        } else if (name.startsWith("led_channels_")) {
+            const ch = name.split("_")[2];
+            payload.led_channels = { [ch]: value };
+        } else {
+            payload[name] = value;
+        }
+    
+        fetch("/settings/update/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": '{{ csrf_token }}'
+            },
+            body: JSON.stringify(payload)
+        });
+    }
+    
+    function openIrrigationDetail(ch) {
+        const area = document.getElementById("detail-area");
+        const setting = JSON.parse(document.getElementById('setting-data').textContent);
+    
+        const irrigationTime = setting.irrigationpanel.irrigation_time[ch] || 100;
+        const relayPort = setting.irrigationpanel.relay_port_mapping[ch] || 0;
+        const mode = setting.irrigationpanel.control_mode[ch] || "timer";
+        const timeList = setting.time_control[ch] || ["10:00", "12:00", "14:00", "16:00"];
+        const sensor = setting.sensor_settings[ch] || {};
+    
+        area.innerHTML = `
+            <div class="header-with-button" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>관수 ${ch}채널 설정</h3>
+                <button type="button" class="done-btn" onclick="document.getElementById('detail-area').innerHTML=''">✅ 닫기</button>
+            </div>
+            <div class="row">
+                <div class="block" style="flex:1; position: relative; padding-bottom: 60px;">
+                    <h4>기본 설정</h4>
+                    <h4>제어 방식 선택</h4>
+                    <div style="margin-bottom: 15px;">
+                        <label>
+                            <input type="radio" name="control_mode_${ch}" value="timer" ${mode === 'timer' ? 'checked' : ''}> 시간제어
+                        </label>
+                        <label style="margin-left: 20px;">
+                            <input type="radio" name="control_mode_${ch}" value="sensor" ${mode === 'sensor' ? 'checked' : ''}> 센서제어
+                        </label>
+                    </div>
+                    <label>관수시간 (초)</label>
+                    <input type="number" name="irrigation_time_${ch}" value="${irrigationTime}"><br>
+    
+                    <label>릴레이 포트</label>
+                    <select name="relay_port_${ch}">
+                        ${[0,1,2,3,4,5,6,7].map(n => `<option value="${n}" ${relayPort==n?'selected':''}>${n}</option>`).join('')}
+                    </select>
+    
+                    <div style="position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px;">
+                        <button type="button" class="apply-btn"  onclick="saveIrrigationBasic(${ch})">💾 적용</button>
+                    </div>
+                </div>
+    
+                <div class="block" style="flex:1; position: relative; padding-bottom: 60px;">
+                    <h4>시간제어 설정</h4>
+                    <div id="time-schedule-area">
+                        ${timeList.map((time, i) => `
+                            <div class="time-entry">
+                                <input type="time" name="time_schedule_${ch}_${i+1}" value="${time}">
+                            </div>`).join('')}
+                    </div>
+                    <button type="button" class="add-btn" onclick="addTimeSchedule(${ch})">➕</button>
+                    <button type="button" class="remove-btn" onclick="removeLastSchedule()">🗑️</button>
+    
+                    <div style="position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px;">
+                        <button type="button" class="apply-btn"  onclick="saveIrrigationTime(${ch})">💾 적용</button>
+                    </div>
+                </div>
+    
+                <div class="block" style="flex:1; position: relative; padding-bottom: 80px;">
+                    <h4>센서제어 설정</h4>
+                    <label>목표 수분값</label>
+                    <input type="number" name="target_moisture_${ch}" value="${sensor.target || 175}"><br>
+    
+                    <label>데이터 수집 시작</label>
+                    <input type="time" name="start_time_${ch}" value="${sensor.start_time || '09:00'}"> ~
+                    <input type="time" name="end_time_${ch}" value="${sensor.end_time || '17:30'}"><br>
+    
+                    <label>새로고침 주기 (초)</label>
+                    <input type="number" name="refresh_sec_${ch}" value="${sensor.refresh_sec || 300}"><br>
+    
+                    <label>Nf Value</label>
+                    <input type="number" name="nf_value_${ch}" value="${sensor.nf_value || 68}"><br>
+    
+                    <label>dtm</label>
+                    <input type="text" name="dtm_${ch}" value="${sensor.dtm || 1.15}"><br>
+    
+                    <label>데이터 테이블 이름</label>
+                    <input type="text" name="data_table_${ch}" value="${sensor.data_table || ''}"><br>
+    
+                    <label>모듈 리스트</label><br>
+                    <textarea id="modules_${ch}" name="modules_${ch}" rows="4" cols="40"></textarea><br>
+    
+                    <div style="position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px;">
+                        <button type="button" class="apply-btn"  onclick="saveIrrigationSensor(${ch})">💾 적용</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        setTimeout(() => {
+            document.getElementById(`modules_${ch}`).value = sensor.modules || '';
+        }, 0);
+    }
+
+    function openLedDetail(ch) {
+        const setting = JSON.parse(document.getElementById('setting-data').textContent);
+        const area = document.getElementById("detail-area");
+
+        const ledTime = setting.ledpanel.led_time[ch] || { on: "08:00", off: "17:00" };
+        const relayPort = setting.ledpanel.led_port_mapping[ch] || 4;
+
+        area.innerHTML = `
+            <div class="row">
+                <div class="block" style="flex: 1; position: relative; padding-bottom: 80px;">
+                    <h4>LED ${ch}채널 상세 설정</h4>
+                    
+                    <label>ON 시간</label>
+                    <input type="time" name="led_on_${ch}" value="${ledTime.on}"><br>
+
+                    <label>OFF 시간</label>
+                    <input type="time" name="led_off_${ch}" value="${ledTime.off}"><br>
+
+                    <label>릴레이 포트</label>
+                    <select name="led_relay_port_${ch}">
+                        ${[0, 1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${relayPort==n?'selected':''}>${n}</option>`).join('')}
+                    </select><br>
+
+                    <div style="position: absolute; right: 20px; bottom: 20px; display: flex; gap: 12px;">
+                        <button type="button" class="apply-btn" onclick="saveLedDetail(${ch})">💾 적용</button>
+                        <button type="button" class="done-btn" onclick="document.getElementById('detail-area').innerHTML=''">✅ 닫기</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    
+
+    function removeLastSchedule() {
+        const container = document.getElementById("time-schedule-area");
+        const entries = container.querySelectorAll(".time-entry");
+        if (entries.length > 1) {
+            container.removeChild(entries[entries.length - 1]);
+        }
+    }
+    function addTimeSchedule(ch) {
+        const container = document.getElementById("time-schedule-area");
+        const count = container.children.length + 1;
+        const div = document.createElement("div");
+        div.className = "time-entry";
+        div.innerHTML = `
+            <input type="time" name="time_schedule_${ch}_${count}" value="10:00">
+        `;
+        container.appendChild(div);
+    }
+
+    function autoSave(element) {
+        const name = element.name;
+        const value = element.type === 'checkbox' ? element.checked : element.value;
+
+        fetch('/settings/update/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ [name]: value })
+        });
+    }
+
+    function saveIrrigationBasic(ch) {
+        const data = {
+            irrigationpanel: {
+                irrigation_time: { [ch]: parseInt(document.querySelector(`[name="irrigation_time_${ch}"]`).value) },
+                relay_port_mapping: { [ch]: parseInt(document.querySelector(`[name="relay_port_${ch}"]`).value) },
+                control_mode: { [ch]: document.querySelector(`[name="control_mode_${ch}"]:checked`).value }
+            }
+        };
+    
+        sendUpdate(data, `관수 ${ch}채널 기본 설정`);
+    }
+
+    function saveIrrigationTime(ch) {
+        const timeList = Array.from(document.querySelectorAll(`[name^="time_schedule_${ch}_"]`)).map(el => el.value);
+        const data = {
+            time_control: {
+                [ch]: timeList
+            }
+        };
+    
+        sendUpdate(data, `관수 ${ch}채널 시간제어 설정`);
+    }
+
+    function saveIrrigationSensor(ch) {
+        const data = {
+            sensor_settings: {
+                [ch]: {
+                    target: parseInt(document.querySelector(`[name="target_moisture_${ch}"]`).value),
+                    start_time: document.querySelector(`[name="start_time_${ch}"]`).value,
+                    end_time: document.querySelector(`[name="end_time_${ch}"]`).value,
+                    refresh_sec: parseInt(document.querySelector(`[name="refresh_sec_${ch}"]`).value),
+                    nf_value: parseInt(document.querySelector(`[name="nf_value_${ch}"]`).value),
+                    dtm: parseFloat(document.querySelector(`[name="dtm_${ch}"]`).value),
+                    data_table: document.querySelector(`[name="data_table_${ch}"]`).value,
+                    modules: document.querySelector(`[name="modules_${ch}"]`).value
+                }
+            }
+        };
+    
+        sendUpdate(data, `관수 ${ch}채널 센서 설정`);
+    }
+
+    function saveLedDetail(ch) {
+       
+    
+        const data = {
+            ledpanel: {
+                led_time: {
+                    [ch]: {
+                        on: document.querySelector(`[name="led_on_${ch}"]`).value,
+                        off: document.querySelector(`[name="led_off_${ch}"]`).value
+                    }
+                },
+                led_port_mapping: {
+                    [ch]: parseInt(document.querySelector(`[name="led_relay_port_${ch}"]`).value)
+                }
+            }
+        };
+        
+        sendUpdate(data,`LED ${ch}채널 설정 저장 완료`);
+    }
+    
+    function sendUpdate(data, label="설정") {
+        fetch('/settings/update/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        }).then(() => {
+            alert(`💾 ${label} 저장 완료`);
+            // setting-data 업데이트
+            fetch('/settings/')
+                .then(response => response.text())
+                .then(html => {
+                    // 임시로 DOM 객체로 파싱
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newScript = doc.getElementById('setting-data');
+                    const currentScript = document.getElementById('setting-data');
+                    if (newScript && currentScript) {
+                        currentScript.textContent = newScript.textContent;
+                    }
+                });
+        });
+    }
+
+    document.querySelector('form').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.tagName.toLowerCase() !== 'textarea') {
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // 모든 input, select, textarea 요소에 변경 시 autoSave 실행 연결
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            el.addEventListener('change', () => autoSave(el));
+        });
+    });
+
+    
+    function uploadSettingJson(input) {
+        const file = input.files[0];
+        if (!file) return;
+    
+        const formData = new FormData();
+        formData.append('file', file);
+    
+        fetch('/settings/overwrite/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("파일 업로드 실패");
+            return res.json();
+        })
+        .then(() => {
+            alert("✅ 설정 덮어쓰기 완료");
+            location.reload();
+        })
+        .catch(err => alert(`❌ 오류: ${err.message}`));
+    }
+
+    {% comment %} document.getElementById("save-btn").addEventListener("click", saveSettings); {% endcomment %}
+    {% comment %} document.getElementById("load-btn").addEventListener("click", loadSettings); {% endcomment %}
+    </script>
+
+
+{% endblock %}

@@ -1,0 +1,78 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TELOFARM Login</title>
+    <style>
+        body {
+            text-align: center;
+            margin-top: 100px;
+            font-family: sans-serif;
+            background-color: #fff;
+        }
+        .logo {
+            width: 150px;
+            margin-bottom: 10px;
+        }
+        .subtext {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-container {
+            display: inline-block;
+            text-align: left;
+            padding: 30px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+        }
+        input {
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn-block {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .btn-block button {
+            margin: 5px;
+            padding: 10px 30px;
+        }
+    </style>
+</head>
+<body>
+    <img class="logo" src="{% static 'logo.JPG' %}" alt="TELOFARM"><br>
+    <div class="subtext">텔로팜 자동관수 제어 프로그램</div>
+
+    {% if messages %}
+    <script>
+        {% for message in messages %}
+        alert("{{ message|escapejs }}");
+        {% endfor %}
+    </script>
+    {% endif %}
+
+    <div class="form-container">
+        <form method="post" action="{% url 'login_process' %}">
+            {% csrf_token %}
+            <label>Username</label>
+            <input type="text" name="username" required>
+        
+            <label>Password</label>
+            <input type="password" name="password" required>
+        
+            <div class="btn-block">
+                <button style="background-color: black; color: white;" type="submit">Login</button>
+                <button type="button" onclick="window.location.href='{% url 'signup' %}'">Sign up</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

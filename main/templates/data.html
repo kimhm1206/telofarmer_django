@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+{% block title %}데이터 보기{% endblock %}
+{% block content %}
+
+<h2 style="margin-top: 30px;">📊 데이터 패널</h2>
+
+<div id="panel-container" style="
+    display: flex;
+    flex-direction: column;  /* 기본은 column */
+    gap: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 20px;
+">
+  {% for panel in panels %}
+    <div style="
+    background-color: #f1f8e9;
+    padding: 20px;
+    border-radius: 12px;
+    width: 480px;
+    height: 650px;
+    min-width: 480px;
+    overflow: auto;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    flex: 0 0 auto;
+    ">
+
+    {% if panel.type == "dummy" %}
+      <h3 style="margin-top: 0;">📈 PLOT_DATA</h3>
+
+      <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 20px;">
+        <label><input type="radio" name="plot_mode" value="log" onchange="switchPlotMode(this)"checked> 과거 로그 데이터</label>
+        <label><input type="radio" name="plot_mode" value="test" onchange="switchPlotMode(this)" > 데이터 테스트</label>
+      </div>
+
+      <div id="plot-panel-test" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
+
+        <!-- 상단 기본 입력 -->
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <select id="test-channel" style="width: 80px;">
+            <option>ch1</option>
+            <option>ch2</option>
+            <option>ch3</option>
+            <option>ch4</option>
+          </select>
+          <input id="test-start-date" type="date" style="width: 150px;" value="{{ today }}">
+          <input id="test-end-date" type="date" style="width: 150px;" value="{{ today }}">
+        </div>
+      
+        <!-- 추가 파라미터 입력 -->
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label>nf:</label>
+          <input id="test-nf" type="number" value="68" style="width: 80px;">
+      
+          <label>dtm:</label>
+          <input id="test-dtm" type="number" step="0.1" value="1.3" style="width: 80px;">
+      
+          <label>goal:</label>
+          <input id="test-goal" type="number" value="150" style="width: 80px;">
+        </div>
+      
+        <!-- 버튼 -->
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+            <button id="test-draw-btn" style="width: 80px; background: #4ef1f1;">그리기</button>
+            <button id="test-clear-btn" style="width: 80px; background: #f44336; color: white;">지우기</button>
+        </div>
+      </div>
+
+      <div id="plot-panel-log" style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+        <select id="log-channel" style="width: 80px;">
+          <option>ch1</option>
+          <option>ch2</option>
+          <option>ch3</option>
+          <option>ch4</option>
+        </select>
+        <input id="log-date" type="date" style="width: 150px;" value="{{ today }}">
+        <button id="log-draw-btn" style="width: 80px; background: #4ef1f1;">그리기</button>
+        <button id="log-clear-btn" style="width: 80px; background: #f44336; color: white;">지우기</button>
+      </div>
+
+      <!-- 빈 svalue 차트 -->
+    <div style="position: relative; height: 250px; margin-top: 10px;">
+        <canvas id="chart-svalue-dummy" style="width: 100%; height: 100%;"></canvas>
+    </div>
+    
+    <!-- 빈 sumx 차트 -->
+    <div style="position: relative; height: 250px; margin-top: 20px;">
+        <canvas id="chart-sumx-dummy" style="width: 100%; height: 100%;"></canvas>
+    </div>
+
+      <script>
+        window.addEventListener("DOMContentLoaded", () => {
+            const today = new Date().toISOString().slice(0, 10);
+            document.querySelectorAll("input[type='date']").forEach(el => el.value = today);
+          });
+
+        let chart_svalue = null;
+        let chart_sumx = null;
+        let isLoadingTestData = false;
+        document.getElementById("test-clear-btn").addEventListener("click", async () => {
+            if (isLoadingTestData) {
+              alert("데이터 수집 중입니다.\n잠시만 기다려주세요...");
+              return;
+            }
+
+            clearplot();
+        })
+
+        document.getElementById("test-draw-btn").addEventListener("click", async () => {
+            if (isLoadingTestData) {
+              alert("데이터 수집 중입니다.\n잠시만 기다려주세요...");
+              return;
+            }
+            clearplot();
+            isLoadingTestData = true;
+            const ch = document.getElementById("test-channel").value.replace("ch", "");
+            const start = document.getElementById("test-start-date").value;
+            const end = document.getElementById("test-end-date").value;
+            const nf = document.getElementById("test-nf").value;
+            const dtm = document.getElementById("test-dtm").value;
+            const goal = document.getElementById("test-goal").value;
+          
+            // 1. WebSocket 명령 전송
+            const cmd = {
+              cmd: "testdata",
+              ch,
+              start,
+              end,
+              nf: parseInt(nf),
+              dtm: parseFloat(dtm),
+              goal: parseFloat(goal)
+            };
+            window.notifySocket.send(JSON.stringify(cmd));
+          
+            // 2. 로딩 시작
+            
+          
+            // 3. 결과 체크
+            let tries = 0;
+            let success = false;
+            while (tries++ < 10) {
+              const res = await fetch(`/api/testdata?ch=${ch}`);
+              if (res.status === 200) {
+                const data = await res.json();
+                if (data.nodata === true) {
+                    [canvas1, canvas2].forEach(canvas => {
+                      const ctx = canvas.getContext("2d");
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      ctx.font = "bold 24px Arial";
+                      ctx.textAlign = "center";
+                      ctx.fillStyle = "#888";
+                      ctx.fillText("No data", canvas.width / 2, canvas.height / 2);
+                    });
+                    isLoadingTestData = false;
+                    return;
+                  }
+                renderPlotCharts(data);
+                success = true;
+                break;
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          
+            // 4. 실패 시 No Data 출력
+            if (!success) {
+              const canvas1 = document.getElementById("chart-svalue-dummy");
+              const canvas2 = document.getElementById("chart-sumx-dummy");
+          
+              [canvas1, canvas2].forEach(canvas => {
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = "bold 24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#888";
+                ctx.fillText("No data", canvas.width / 2, canvas.height / 2);
+              });
+            }
+          
+            // 5. 로딩 끝
+            isLoadingTestData = false;
+          });
+          
+        document.getElementById("log-clear-btn").addEventListener("click", () => {
+            if (isLoadingTestData) {
+                alert("데이터 수집 중입니다.\n잠시만 기다려주세요...");
+                return;
+            }
+            clearplot();
+            });
+
+        
+            function clearplot(){
+            const canvas1 = document.getElementById("chart-svalue-dummy");
+            const canvas2 = document.getElementById("chart-sumx-dummy");
+            
+            // Chart 인스턴스가 있으면 제거
+            if (chart_svalue) {
+                chart_svalue.destroy();
+                chart_svalue = null;
+            } else {
+                const ctx1 = canvas1.getContext("2d");
+                ctx1.clearRect(0, 0, canvas1.width, canvas1.height);
+            }
+            
+            if (chart_sumx) {
+                chart_sumx.destroy();
+                chart_sumx = null;
+            } else {
+                const ctx2 = canvas2.getContext("2d");
+                ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
+            }
+        }
+
+        function switchPlotMode(radio) {
+          const isTest = radio.value === "test";
+          document.getElementById("plot-panel-test").style.display = isTest ? "flex" : "none";
+          document.getElementById("plot-panel-log").style.display = isTest ? "none" : "flex";
+        }
+
+        document.getElementById("log-draw-btn").addEventListener("click", async () => {
+            if (isLoadingTestData) {
+                alert("데이터 수집 중입니다.\n잠시만 기다려주세요...");
+                return;
+            }
+            const channel = document.getElementById("log-channel").value;
+            const date = document.getElementById("log-date").value;
+          
+            const svalueCanvas = document.getElementById("chart-svalue-dummy");
+            const sumxCanvas = document.getElementById("chart-sumx-dummy");
+          
+            const ctx1 = svalueCanvas.getContext("2d");
+            const ctx2 = sumxCanvas.getContext("2d");
+          
+            try {
+                isLoadingTestData = true;
+                const res = await fetch(`/api/logdata?ch=${channel}&date=${date}`);
+            
+                if (res.status === 404) {
+                    // ❌ 파일 없음 → 두 캔버스에 "No data"
+                    [ctx1, ctx2].forEach(ctx => {
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                    ctx.font = "bold 24px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = "#888";
+                    ctx.fillText("No data", ctx.canvas.width / 2, ctx.canvas.height / 2);
+                    });
+                    isLoadingTestData = false;
+                    return;
+                }
+          
+                const data = await res.json();
+                renderPlotCharts(data);
+                isLoadingTestData = false;
+
+            } catch (err) {
+                console.error("❌ 오류 발생:", err);
+            }
+          });
+        
+        
+          function renderPlotCharts(data) {
+            const canvas1 = document.getElementById("chart-svalue-dummy");
+            const canvas2 = document.getElementById("chart-sumx-dummy");
+        
+            clearplot();  // 기존 차트 지우는 함수
+        
+            function makeXScaleConfig() {
+                return {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            hour: 'MM-dd HH:mm'
+                        }
+                    },
+                    grid: {
+                        display: true,
+                        drawTicks: true,
+                        tickLength: 10,
+                        color: function(context) {
+                            const date = new Date(context.tick.value);
+                            const hour = date.getHours();
+                            const minute = date.getMinutes();
+                            // 6시간 간격에만 진한 그리드
+                            return (hour % 6 === 0 && minute === 0) ? 'rgba(0,0,0,0.3)' : 'transparent';
+                        }
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        source: 'auto',
+                        maxRotation: 0,
+                        minRotation: 0,
+                        callback: function(value) {
+                            const date = new Date(value);
+                            const hour = date.getHours();
+                            const minute = date.getMinutes();
+                            if (hour === 0 && minute === 0) {
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                return `${month}-${day}`;
+                            }
+                            return '';
+                        }
+                    }
+                };
+            }
+        
+            // ▶ svalue 차트
+            chart_svalue = new Chart(canvas1, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [data.datasets.find(ds => ds.label === "svalue")]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: makeXScaleConfig(),
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: false,
+                            min: data.svalue_y.min,
+                            max: data.svalue_y.max,
+                            ticks: {
+                                callback: v => v.toFixed(1),
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+        
+            // ▶ sumx + goal + manual_goal 차트
+            const sumxDatasets = data.datasets
+                .filter(ds => ds.label !== "svalue")
+                .map(ds => ({ ...ds, yAxisID: "y" }));
+        
+            chart_sumx = new Chart(canvas2, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: sumxDatasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: makeXScaleConfig(),
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: true,
+                            ticks: {
+                                callback: v => {
+                                    if (Math.abs(v) >= 100) {
+                                        return (v / 1000).toFixed(1) + "k";
+                                    }
+                                    return v.toFixed(1);
+                                },
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        
+    </script>
+
+    {% elif panel.type == "irrigation" %}
+      <h3 style="margin-top: 0;">💧 관수 {{ panel.channel }}ch</h3>
+
+      <div style="position: relative; height: 260px; ">
+        <canvas id="chart-svalue-{{ panel.channel }}" style="width: 100%; height: 100%;"></canvas>
+      </div>
+      <div style="position: relative; height: 260px; margin-top: 20px;">
+        <canvas id="chart-sumx-{{ panel.channel }}" style="width: 100%; height: 100%;"></canvas>
+      </div>
+
+      {% with "chart-data-"|add:panel.channel as chart_id %}
+        {{ panel.chart_data|json_script:chart_id }}
+
+        <script>
+          document.addEventListener("DOMContentLoaded", function() {
+            const chartData = JSON.parse(document.getElementById("{{ chart_id }}").textContent);
+            const container = document.getElementById("panel-container");
+            const userAgent = navigator.userAgent.toLowerCase();
+
+            const isMobile = /android|iphone|ipad|ipod|mobile/i.test(userAgent);
+            
+            if (!isMobile) {
+                // PC (Windows, Mac)라면 → 가로(row)로 바꿔
+                container.style.flexDirection = "row";
+                container.style.overflowX = "auto";
+                container.style.overflowY = "hidden";
+            } else {
+                // 모바일이면 → 세로(column) 유지
+                container.style.flexDirection = "column";
+                container.style.overflowX = "hidden";
+                container.style.overflowY = "auto";
+            }
+      
+          
+              function makeXScaleConfig() {
+                  return {
+                      type: 'time',
+                      time: {
+                          unit: 'hour',
+                          displayFormats: {
+                              hour: 'MM-dd HH:mm'
+                          }
+                      },
+                      grid: {
+                          display: true,
+                          drawTicks: true,
+                          tickLength: 10,
+                          color: function(context) {
+                              const date = new Date(context.tick.value);
+                              const hour = date.getHours();
+                              const minute = date.getMinutes();
+                              // ✅ 6시간 간격에만 진한 그리드
+                              return (hour % 6 === 0 && minute === 0) ? 'rgba(0,0,0,0.3)' : 'transparent';
+                          }
+                      },
+                      ticks: {
+                          autoSkip: false,
+                          source: 'auto',
+                          maxRotation: 0,
+                          minRotation: 0,
+                          callback: function(value, index, ticks) {
+                              const date = new Date(value);
+                              const hour = date.getHours();
+                              const minute = date.getMinutes();
+                              if (hour === 0 && minute === 0) {
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  const day = String(date.getDate()).padStart(2, '0');
+                                  return `${month}-${day}`;
+                              }
+                              return '';
+                          }
+                      }
+                  };
+              }
+          
+              // ▶ svalue chart
+              new Chart(document.getElementById("chart-svalue-{{ panel.channel }}"), {
+                  type: 'line',
+                  data: {
+                      labels: chartData.labels,
+                      datasets: [chartData.datasets.find(ds => ds.label === "svalue")]
+                  },
+                  options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: { mode: 'index', intersect: false },
+                      plugins: {
+                          legend: { display: false },
+                          tooltip: { enabled: true }
+                      },
+                      scales: {
+                          x: makeXScaleConfig(),
+                          y: {
+                              type: 'linear',
+                              position: 'left',
+                              beginAtZero: false,
+                              min: chartData.svalue_y.min,
+                              max: chartData.svalue_y.max,
+                              ticks: {
+                                  maxTicksLimit: 6
+                              }
+                          }
+                      }
+                  }
+              });
+          
+              // ▶ sumx + goal + manual_goal chart
+              const datasets = chartData.datasets
+                  .filter(ds => ds.label !== "svalue")
+                  .map(ds => ({ ...ds, yAxisID: "y" }));
+          
+              new Chart(document.getElementById("chart-sumx-{{ panel.channel }}"), {
+                  type: 'line',
+                  data: {
+                      labels: chartData.labels,
+                      datasets: datasets
+                  },
+                  options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: { mode: 'index', intersect: false },
+                      plugins: {
+                          legend: { display: false },
+                          tooltip: { enabled: true }
+                      },
+                      scales: {
+                          x: makeXScaleConfig(),
+                          y: {
+                              type: 'linear',
+                              position: 'left',
+                              beginAtZero: true,
+                              ticks: {
+                                  callback: function(value) {
+                                      if (Math.abs(value) >= 100) {
+                                          return (value / 1000).toFixed(1) + "k";
+                                      }
+                                      return value.toFixed(1);
+                                  },
+                                  maxTicksLimit: 6
+                              }
+                          }
+                      }
+                  }
+              });
+          });
+          </script>
+          
+          
+      
+      
+      
+      
+      {% endwith %}
+    {% endif %}
+    </div>
+  {% endfor %}
+</div>
+<script>
+window.addEventListener("notify_socket_ready", () => {
+    console.log("✅ WebSocket 준비됨 (dashboard)");
+
+    // 🔄 WebSocket 메시지 수신 시 처리
+    window.addEventListener("message_from_socket", (event) => {
+      const data = event.detail;
+      console.log("📨 수신 데이터:", data);
+
+      if (data.cmd === "logupdate") {
+        console.log("🔁 로그 업데이트 수신됨 → 새로고침");
+        location.reload();
+      }
+    });
+  });
+</script>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+{% endblock %}

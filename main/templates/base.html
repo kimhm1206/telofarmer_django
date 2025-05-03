@@ -1,0 +1,183 @@
+{% load static %}
+{% if not user.is_authenticated %}
+  <script>
+    alert("로그인이 필요합니다.");
+    window.location.href = "/login/";
+  </script>
+{% endif %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}TELOFARM{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'dd.png' %}">
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #f8f8f8;
+        }
+        .nav-wrapper {
+            margin: 30px;
+        }
+        nav {
+            background-color: #e0e0e0;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+        nav a {
+            text-decoration: none;
+            color: #000;
+            font-weight: bold;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        nav img {
+            height: 24px;
+            margin-right: 8px;
+        }
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            align-items: center;
+            color: #333;
+        }
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            box-shadow: 0 0 4px;
+            display: inline-block;
+            margin-left: 8px;
+            vertical-align: -2px;
+        }
+        .status-green {
+            background-color: limegreen;
+            box-shadow: 0 0 4px limegreen;
+        }
+        .status-blue {
+            background-color: limegreen;
+            box-shadow: 0 0 4px limegreen;
+        }
+
+        main {
+            padding: 30px;
+        }
+    </style>
+    {% block style %}{% endblock %}
+</head>
+<body>
+    <div class="nav-wrapper">
+        <nav>
+            <div class="nav-left">
+                <img src="{% static 'dd.png' %}" alt="logo">
+                <a href="/dashboard/">📊 시스템 현황</a>
+                <a href="/data/">📈 데이터</a>
+                <a href="/log/">💿 로그</a>
+                <a href="/settings/">⚙️ 설정</a>
+            </div>
+            <!-- status-bar 내부에 로그아웃 버튼 추가 -->
+            <div class="status-bar">
+                <div class="user-info" style="margin-left: 40px;">접속자: {{ user.username }}</div>
+                <div>
+                    <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" style="padding: 6px 12px; margin-left: 10px;">로그아웃</button>
+                    </form>
+                </div>
+                <div>System <span id="status-lamp" class="status-dot" style="background-color: red;"></span></div>
+                <div>Internet <span id="internet-lamp" class="status-dot" style="background-color: red;"></span></div>
+            </div>
+        </nav>
+    </div>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        window.addEventListener("DOMContentLoaded", () => {
+            let lastRunningTime = null;
+    
+            const statusLamp = document.getElementById("status-lamp");
+            const internetLamp = document.getElementById("internet-lamp");
+    
+            // ✅ WebSocket 객체는 전역 window.notifySocket 으로 등록
+            const protocol = window.location.protocol === "https:" ? "wss://" : "ws://"
+            window.notifySocket = new WebSocket(protocol + window.location.host + "/ws/control/notify/");
+    
+            // ✅ 핸들러 전부 window.notifySocket 기준으로 작성
+            window.notifySocket.onopen = () => {
+                console.log("📡 WebSocket 연결됨");
+                window.dispatchEvent(new CustomEvent("notify_socket_ready"));
+              };
+            window.notifySocket.onclose = () => console.warn("📴 NotifySocket 종료됨");
+    
+            window.notifySocket.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                
+                if (data.cmd !== "running"){
+                    window.dispatchEvent(new CustomEvent("message_from_socket", { detail: data }));
+                }
+                if (data.cmd === "running") {
+                    lastRunningTime = new Date();
+    
+                    // 시스템 램프 ON
+                    statusLamp.style.backgroundColor = "limegreen";
+                    statusLamp.style.boxShadow = "0 0 4px limegreen";
+    
+                    if (data.internet === true) {
+                        internetLamp.style.backgroundColor = "limegreen";
+                        internetLamp.style.boxShadow = "0 0 4px limegreen";
+                    } else {
+                        internetLamp.style.backgroundColor = "red";
+                        internetLamp.style.boxShadow = "0 0 4px red";
+                    }
+    
+                } else if (data.cmd === "die") {
+                    lastRunningTime = null;
+    
+                    statusLamp.style.backgroundColor = "red";
+                    statusLamp.style.boxShadow = "0 0 4px red";
+    
+                    internetLamp.style.backgroundColor = "red";
+                    internetLamp.style.boxShadow = "0 0 4px red";
+    
+                    alert("❗ 서버에서 20분 이상 상태 미수신! 시스템 연결을 확인하세요.");
+                }
+    
+            };
+    
+            // ⏱️ 로컬 검사
+            setInterval(() => {
+                if (!lastRunningTime) return;
+                const now = new Date();
+                const diff = (now - lastRunningTime) / 1000 / 60;
+    
+                if (diff >= 20) {
+                    console.warn("❗ 로컬 기준 20분 초과 무수신 → 램프 소등");
+                    statusLamp.style.backgroundColor = "gray";
+                    statusLamp.style.boxShadow = "none";
+                    internetLamp.style.backgroundColor = "gray";
+                    internetLamp.style.boxShadow = "none";
+    
+                    alert("❗ 로컬 기준 20분 동안 'running' 수신 없음! 시스템 상태를 확인하세요.");
+                    lastRunningTime = null;
+                }
+            }, 60000);
+        });
+    </script>
+    
+</body>
+</html>

@@ -1,13 +1,6 @@
 #!/bin/bash
 
 BASEDIR="/home/telofarm"
-USE_GUI=0
-
-# DISPLAY 존재 여부로 GUI 환경 판단
-if [ -n "$DISPLAY" ]; then
-    USE_GUI=1
-fi
-
 
 echo "🔄 Daphne 종료"
 pkill -f "daphne config.asgi:application"
@@ -26,31 +19,9 @@ echo "📥 Controller pull"
 cd "$BASEDIR/controller_project" || exit 1
 git pull
 
-echo "🚀 cloudflared 실행"
-if [ "$USE_GUI" -eq 1 ]; then
-    lxterminal -t "Cloudflared" -e "bash -c 'cloudflared tunnel run --url http://localhost:8000 seongju'" &
-else
-    nohup cloudflared tunnel run --url http://localhost:8000 seongju &
-fi
+echo "🚀 시스템 업데이트 완료, Telofarm 서비스 시작"
 
-sleep 2
-
-echo "🌀 daphne 실행"
-if [ "$USE_GUI" -eq 1 ]; then
-    lxterminal -t "Daphne" -e "bash -c 'cd $BASEDIR/telofarmer_django && daphne config.asgi:application'" &
-else
-    cd "$BASEDIR/telofarmer_django"
-    nohup daphne config.asgi:application &
-fi
-
-sleep 2
-
-echo "🐍 controller 실행"
-if [ "$USE_GUI" -eq 1 ]; then
-    lxterminal -t "Controller" -e "bash -c 'cd $BASEDIR/controller_project && python3 main.py'" &
-else
-    cd "$BASEDIR/controller_project"
-    nohup python3 main.py &
-fi
+# start.sh를 완전히 백그라운드에서 실행
+nohup bash "$BASEDIR/scripts/start.sh" >/dev/null 2>&1 &
 
 echo "✅ 모든 서비스 실행 완료"

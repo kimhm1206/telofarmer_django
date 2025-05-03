@@ -1,21 +1,19 @@
 # views.py
-import json, os
+import json, os, csv, platform, subprocess
 import shutil
 import pandas as pd
 from datetime import datetime, timedelta
-from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404
+from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.core.files.storage import default_storage
-from django.http import JsonResponse, HttpRequest
 from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from .forms import TelofarmSignupForm
-import csv
 
 def is_local_ip(request: HttpRequest) -> bool:
     ip = request.META.get("REMOTE_ADDR")
@@ -80,6 +78,25 @@ def signup_view(request):
         form = TelofarmSignupForm()
     return render(request, "signup.html", {"form": form})
 
+def system_update(request):
+    try:
+        os_type = platform.system().lower()  # 'windows' or 'linux'
+
+        # scripts 폴더 내의 update 파일 경로 설정
+        script_dir = os.path.join(os.getcwd(), 'scripts')
+
+        if os_type == 'windows':
+            script_path = os.path.join(script_dir, 'update_windows.bat')
+            subprocess.Popen(["cmd.exe", "/c", script_path], shell=True)
+
+        elif os_type == 'linux':
+            script_path = os.path.join(script_dir, 'update_rpi.sh')
+            subprocess.Popen(["bash", script_path], shell=True)
+
+        return JsonResponse({"status": "ok", "message": f"Update script launched for {os_type}"})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
 
 def dashboard_view(request):
     with open(SETTING_PATH, 'r', encoding='utf-8') as f:
@@ -203,18 +220,6 @@ def api_logdata(request):
     except Exception as e:
         return JsonResponse({"error": f"처리 중 오류 발생: {str(e)}"}, status=500)
 
-from datetime import datetime, timedelta
-import pandas as pd
-
-from datetime import datetime, timedelta
-import pandas as pd
-
-from datetime import datetime, timedelta
-import pandas as pd
-
-from datetime import datetime, timedelta
-import pandas as pd
-
 def make_chart_data(df):
     df["Time"] = pd.to_datetime(df["Time"])
     df = df.sort_values("Time")
@@ -330,9 +335,6 @@ def make_chart_data(df):
             }
         ]
     }
-
-
-
 
 
 def data_view(request):

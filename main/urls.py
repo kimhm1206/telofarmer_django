@@ -20,4 +20,5 @@ urlpatterns = [
     path("api/testdata/", views.api_testdata, name="api_testdata"),
     path("signup/", views.signup_view, name="signup"),
     path("logout/", views.logout_view, name="logout"),
+    path("system_update/", views.system_update, name="system_update"),
 ]

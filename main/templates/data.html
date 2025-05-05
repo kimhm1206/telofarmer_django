@@ -395,7 +395,7 @@
 
         <script>
           document.addEventListener("DOMContentLoaded", function() {
-            const chartData = JSON.parse(document.getElementById("{{ chart_id }}").textContent);
+            
             const container = document.getElementById("panel-container");
             const userAgent = navigator.userAgent.toLowerCase();
 
@@ -413,7 +413,8 @@
                 container.style.overflowY = "auto";
             }
       
-          
+            const chartData = JSON.parse(document.getElementById("{{ chart_id }}").textContent);
+            
               function makeXScaleConfig() {
                   return {
                       type: 'time',

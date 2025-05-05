@@ -44,6 +44,7 @@ ALLOWED_HOSTS = ["localhost",
     "gwanak.telofarm.net",
     "seong-ju.telofarm.net",
     "test2.telofarm.net",
+    "posco3.telofarm.net",
     ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -51,6 +52,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://gwanak.telofarm.net",
     "https://seong-ju.telofarm.net",
     "https://test2.telofarm.net",
+    "https://posco3.telofarm.net",
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

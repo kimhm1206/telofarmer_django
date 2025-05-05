@@ -16,8 +16,12 @@ echo 📥 Controller pull
 cd /d "%BASEDIR%\controller_project"
 git pull
 
+echo 📥 scripts pull
+cd /d "%BASEDIR%\scripts"
+git pull
+
 echo 🚀 cloudflared 실행 (새 창 + 로그 보기)
-start "cloudflared" cmd /k "cd /d %BASEDIR%\telofarmer_django && cloudflared tunnel run --url http://localhost:8000 gwanaktunnel"
+start "cloudflared" cmd /k "cd /d %BASEDIR%\telofarmer_django && cloudflared tunnel run --url http://localhost:8000 gbatunnel"
 
 timeout /t 1 > nul
 

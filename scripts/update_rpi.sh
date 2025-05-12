@@ -2,26 +2,22 @@
 
 BASEDIR="/home/telofarm"
 
-echo "🔄 Daphne 종료"
-pkill -f "daphne config.asgi:application"
+echo "📥 Django 코드 업데이트"
+cd "$BASEDIR/telofarmer_django" || { echo "❌ 디렉토리 이동 실패 (telofarmer_django)"; exit 1; }
+git pull || { echo "❌ git pull 실패 (Django)"; exit 1; }
 
-echo "🔄 Controller 종료"
-pkill -f "python3 main.py"
+echo "📥 Controller 코드 업데이트"
+cd "$BASEDIR/controller_project" || { echo "❌ 디렉토리 이동 실패 (controller_project)"; exit 1; }
+git pull || { echo "❌ git pull 실패 (Controller)"; exit 1; }
 
-echo "🔄 Cloudflared 종료"
-pkill -f "cloudflared tunnel run"
+echo "📥 Scripts 폴더 업데이트"
+cd "$BASEDIR/scripts" || { echo "❌ 디렉토리 이동 실패 (scripts)"; exit 1; }
+git pull || { echo "❌ git pull 실패 (Scripts)"; exit 1; }
 
-echo "📥 Django pull"
-cd "$BASEDIR/telofarmer_django" || exit 1
-git pull
+echo "🔁 Daphne 서비스 재시작"
+sudo systemctl restart telofarm-daphne
 
-echo "📥 Controller pull"
-cd "$BASEDIR/controller_project" || exit 1
-git pull
+echo "🔁 Controller 서비스 재시작"
+sudo systemctl restart telofarm-controller
 
-echo "🚀 시스템 업데이트 완료, Telofarm 서비스 시작"
-
-# start.sh를 완전히 백그라운드에서 실행
-nohup bash "$BASEDIR/scripts/start.sh" >/dev/null 2>&1 &
-
-echo "✅ 모든 서비스 실행 완료"
+echo "✅ 전체 코드 업데이트 및 서비스 재시작 완료 (cloudflared는 건드리지 않음)"

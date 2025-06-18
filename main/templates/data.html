@@ -52,9 +52,6 @@
           <label>nf:</label>
           <input id="test-nf" type="number" value="68" style="width: 80px;">
       
-          <label>dtm:</label>
-          <input id="test-dtm" type="number" step="0.1" value="1.2" style="width: 80px;">
-      
           <label>goal:</label>
           <input id="test-goal" type="number" value="220" style="width: 80px;">
         </div>
@@ -117,7 +114,6 @@
             const start = document.getElementById("test-start-date").value;
             const end = document.getElementById("test-end-date").value;
             const nf = document.getElementById("test-nf").value;
-            const dtm = document.getElementById("test-dtm").value;
             const goal = document.getElementById("test-goal").value;
           
             // 1. WebSocket 명령 전송
@@ -127,7 +123,6 @@
               start,
               end,
               nf: parseInt(nf),
-              dtm: parseFloat(dtm),
               goal: parseFloat(goal)
             };
             window.notifySocket.send(JSON.stringify(cmd));
@@ -310,7 +305,12 @@
                 type: 'line',
                 data: {
                     labels: data.labels,
-                    datasets: [data.datasets.find(ds => ds.label === "svalue")]
+                    datasets: [
+                    {
+                        ...data.datasets.find(ds => ds.label === "svalue"),
+                        tension: 0.4  // 선을 부드럽게
+                    }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -340,7 +340,11 @@
             // ▶ sumx + goal + manual_goal 차트
             const sumxDatasets = data.datasets
                 .filter(ds => ds.label !== "svalue")
-                .map(ds => ({ ...ds, yAxisID: "y" }));
+                .map(ds => ({
+                    ...ds,
+                    yAxisID: "y",
+                    tension: 0.4  // 부드러운 선
+                }));
         
             chart_sumx = new Chart(canvas2, {
                 type: 'line',
@@ -461,7 +465,12 @@
                   type: 'line',
                   data: {
                       labels: chartData.labels,
-                      datasets: [chartData.datasets.find(ds => ds.label === "svalue")]
+                      datasets: [
+                    {
+                        ...chartData.datasets.find(ds => ds.label === "svalue"),
+                        tension: 0.4  // 선을 부드럽게
+                    }
+                    ]
                   },
                   options: {
                       responsive: true,

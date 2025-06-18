@@ -184,14 +184,8 @@
                     <input type="time" name="start_time_${ch}" value="${sensor.start_time || '09:00'}"> ~
                     <input type="time" name="end_time_${ch}" value="${sensor.end_time || '17:30'}"><br>
     
-                    <label>새로고침 주기 (초)</label>
-                    <input type="number" name="refresh_sec_${ch}" value="${sensor.refresh_sec || 300}"><br>
-    
                     <label>Nf Value</label>
                     <input type="number" name="nf_value_${ch}" value="${sensor.nf_value || 68}"><br>
-    
-                    <label>dtm</label>
-                    <input type="text" name="dtm_${ch}" value="${sensor.dtm || 1.15}"><br>
     
                     <label>데이터 테이블 이름</label>
                     <input type="text" name="data_table_${ch}" value="${sensor.data_table || ''}"><br>
@@ -307,9 +301,9 @@
                     target: parseInt(document.querySelector(`[name="target_moisture_${ch}"]`).value),
                     start_time: document.querySelector(`[name="start_time_${ch}"]`).value,
                     end_time: document.querySelector(`[name="end_time_${ch}"]`).value,
-                    refresh_sec: parseInt(document.querySelector(`[name="refresh_sec_${ch}"]`).value),
+                    refresh_sec: 5,
                     nf_value: parseInt(document.querySelector(`[name="nf_value_${ch}"]`).value),
-                    dtm: parseFloat(document.querySelector(`[name="dtm_${ch}"]`).value),
+                    dtm: 5,
                     data_table: document.querySelector(`[name="data_table_${ch}"]`).value,
                     modules: document.querySelector(`[name="modules_${ch}"]`).value
                 }

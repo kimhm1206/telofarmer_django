@@ -357,7 +357,7 @@ def data_view(request):
         chart_data = None
         filename = os.path.join(LOG_DIR, str(ch), f"{ch}ch_sensor_log_{today}.csv")
         filepath = os.path.join(LOG_DIR, filename)
-   
+
         try:
             if os.path.exists(filepath):
                 df = pd.read_csv(filepath)

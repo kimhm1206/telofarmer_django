@@ -50,9 +50,9 @@ ALLOWED_HOSTS = ["localhost",
     "yangyang.telofarm.net",
     "youngju1.telofarm.net",
     "youngju2.telofarm.net",
-    "deajeon1.telofarm.net",
-    "deajeon2.telofarm.net",
-    "deajeon3.telofarm.net",
+    "daejeon1.telofarm.net",
+    "daejeon2.telofarm.net",
+    "daejeon3.telofarm.net",
     ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -66,9 +66,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://yangyang.telofarm.net",
     "https://youngju1.telofarm.net",
     "https://youngju2.telofarm.net",
-    "https://deajeon1.telofarm.net",
-    "https://deajeon2.telofarm.net",
-    "https://deajeon3.telofarm.net",
+    "https://daejeon1.telofarm.net",
+    "https://daejeon2.telofarm.net",
+    "https://daejeon3.telofarm.net",
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

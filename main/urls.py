@@ -21,4 +21,7 @@ urlpatterns = [
     path("signup/", views.signup_view, name="signup"),
     path("logout/", views.logout_view, name="logout"),
     path("system_update/", views.system_update, name="system_update"),
+    path("settings/test_port", views.test_port, name="test_port"),
+    path('weatherdata/', views.weather_data_page, name='weather_view'),
+    path("weatherdata/download/", views.download_weather_csv, name="download_weather_csv"),
 ]

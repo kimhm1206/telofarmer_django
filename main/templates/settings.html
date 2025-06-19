@@ -57,11 +57,13 @@
             </select><br>
 
             <label>기상센서 포트</label>
-            <select name="sensor_ports" onchange="autoSave(this)">
+            <select id="sensor_ports" name="sensor_ports" onchange="autoSave(this)">
                 {% for i in "123456789" %}
                 <option value="com{{ i }}" {% if setting.sensor_ports == "com"|add:i %}selected{% endif %}>com{{ i }}</option>
                 {% endfor %}
-            </select><br>
+            </select>
+            <button type="button" id="test-port-btn" style="margin-left: 8px; padding: 2px 10px; border: none; border-radius: 4px; background-color: #ccc; color: white;">테스트</button><br>
+
 
             <label>테스트 모드</label>
             <input type="checkbox" name="test_mode" {% if setting.test_mode %}checked{% endif %}>
@@ -394,6 +396,29 @@
         })
         .catch(err => alert(`❌ 오류: ${err.message}`));
     }
+
+    document.getElementById('test-port-btn').addEventListener('click', async function() {
+        const port = document.getElementById('sensor_ports').value;
+        const button = this;
+    
+        button.textContent = "🔍 확인 중...";
+        button.style.backgroundColor = "#ccc";
+    
+        try {
+            const response = await fetch(`/settings/test_port?port=${port}`);
+            const result = await response.json();
+            if (result.success) {
+                button.textContent = "✅ 연결 성공";
+                button.style.backgroundColor = "green";
+            } else {
+                button.textContent = "❌ 연결 실패";
+                button.style.backgroundColor = "red";
+            }
+        } catch (error) {
+            button.textContent = "⚠ 오류 발생";
+            button.style.backgroundColor = "red";
+        }
+    });
 
     {% comment %} document.getElementById("save-btn").addEventListener("click", saveSettings); {% endcomment %}
     {% comment %} document.getElementById("load-btn").addEventListener("click", loadSettings); {% endcomment %}

@@ -14,6 +14,7 @@ from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH,BASE_DI
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from .forms import TelofarmSignupForm
+import serial
 
 def is_local_ip(request: HttpRequest) -> bool:
     ip = request.META.get("REMOTE_ADDR")
@@ -581,3 +582,47 @@ def overwrite_setting(request):
 def download_setting(request):
     if os.path.exists(SETTING_PATH):
         return FileResponse(open(SETTING_PATH, 'rb'), as_attachment=True, filename="setting.json")
+
+def test_port(request):
+    port = request.GET.get("port")
+    try:
+        ser = serial.Serial(port, baudrate=9600, timeout=1)
+        ser.close()
+        return JsonResponse({"success": True})
+    except Exception as e:
+        print("포트 테스트 실패:", e)
+        return JsonResponse({"success": False})
+    
+def weather_data_page(request):
+    date_str = request.GET.get("date")
+    if not date_str:
+        date_str = datetime.today().strftime("%Y-%m-%d")
+
+    path = os.path.join(LOG_DIR,"weather")
+    file_path = os.path.join(path, f"{date_str}.csv")
+
+    data = []
+    if os.path.exists(file_path):
+        df = pd.read_csv(file_path)
+        df = df.sort_values("Time")
+        data = df.to_dict(orient="records")
+
+    return render(request, "weatherdata.html", {
+        "today": date_str,
+        "weather_data": data
+    })
+    
+    
+def download_weather_csv(request):
+    date_str = request.GET.get("date")
+    if not date_str:
+        raise Http404("날짜가 지정되지 않았습니다")
+    
+    path = os.path.join(LOG_DIR,"weather")
+    file_path = os.path.join(path, f"{date_str}.csv")
+    
+    if not os.path.exists(file_path):
+        raise Http404("CSV 파일이 존재하지 않습니다")
+
+    filename = f"{date_str}_weather.csv"
+    return FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)

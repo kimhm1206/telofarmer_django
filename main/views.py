@@ -585,10 +585,39 @@ def download_setting(request):
 
 def test_port(request):
     port = request.GET.get("port")
+    if not port:
+        return JsonResponse({"success": False})
+
     try:
+        # 시리얼 포트 열기
         ser = serial.Serial(port, baudrate=9600, timeout=1)
+
+        # 요청 패킷 구성
+        data = bytearray([0x02, ord('0'), 0x52, 0x58, 0x5A, 0x54, 0x48, 0x4C, 0x03])
+        checksum = 0
+        for b in data:
+            checksum ^= b
+        data.append(checksum)
+
+        # 전송
+        ser.write(data)
+
+        # 응답 읽기
+        response = ser.read(28)
         ser.close()
+
+        if len(response) < 28:
+            return JsonResponse({"success": False})
+
+        # 간단히 디코딩해서 형식 확인
+        try:
+            decoded = response.decode("utf-8", errors="ignore")
+            print("수신된 데이터:", decoded)
+        except:
+            return JsonResponse({"success": False})
+
         return JsonResponse({"success": True})
+
     except Exception as e:
         print("포트 테스트 실패:", e)
         return JsonResponse({"success": False})

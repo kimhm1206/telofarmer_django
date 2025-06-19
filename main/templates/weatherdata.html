@@ -73,4 +73,20 @@
     document.getElementById("download-link").href = `/weatherdata/download/?date=${date}`;
 });
 </script>
+<script>
+    window.addEventListener("notify_socket_ready", () => {
+        console.log("✅ WebSocket 준비됨 (dashboard)");
+    
+        // 🔄 WebSocket 메시지 수신 시 처리
+        window.addEventListener("message_from_socket", (event) => {
+          const data = event.detail;
+          console.log("📨 수신 데이터:", data);
+    
+          if (data.cmd === "logupdate") {
+            console.log("🔁 로그 업데이트 수신됨 → 새로고침");
+            location.reload();
+          }
+        });
+      });
+    </script>
 {% endblock %}

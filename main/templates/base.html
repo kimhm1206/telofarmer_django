@@ -90,6 +90,19 @@
             </div>
             <!-- status-bar 내부에 로그아웃 버튼 추가 -->
             <div class="status-bar">
+            {% if latest_weather %}
+            <div style="font-size: 13px; background: #fffde7; padding: 6px 10px; border-radius: 6px; border: 1px solid #ddd;">
+            ⏱ {{ latest_weather.time|slice:"11:16" }} | 🌡 {{ latest_weather.temp }}℃ | 💧 {{ latest_weather.humi }}%<br>
+            🔄 다음: 
+            {% with latest_weather.time|slice:"11:16" as base_time %}
+                {% with base_time|cut:":" as base_hm %}
+                {% comment %} 자바스크립트로 처리하자 {% endcomment %}
+                {% endwith %}
+            {% endwith %}
+            <span id="next-update-time"></span>
+            </div>
+            {% endif %}
+            
                 <div class="user-info" style="margin-left: 40px;">접속자: {{ user.username }}</div>
                 <div>
                     <form method="post" action="{% url 'logout' %}" style="display:inline;">
@@ -179,6 +192,27 @@
             }, 60000);
         });
     </script>
-    
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          const timeStr = "{{ latest_weather.time|default:"" }}".slice(11, 16);  // "HH:mm"
+          if (!timeStr) return;
+        
+          const [hour, minute] = timeStr.split(":").map(Number);
+          const nextMin = (Math.ceil((minute) / 15) * 15)+1;
+            
+          let nextHour = hour;
+          let displayMin = nextMin;
+        
+          if (nextMin >= 60) {
+            nextHour = (hour + 1) % 24;
+            displayMin = 0;
+          }
+        
+          const padded = (v) => String(v).padStart(2, "0");
+          const nextUpdate = `${padded(nextHour)}:${padded(displayMin)}`;
+          document.getElementById("next-update-time").textContent = nextUpdate;
+        });
+        </script>
+        
 </body>
 </html>

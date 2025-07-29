@@ -542,6 +542,19 @@ def update_setting(request):
                 elif key.startswith("led_channels_"):
                     ch = key.split("_")[-1]
                     current["led_channels"][ch] = value
+                elif key.startswith("area_infor_"):
+                    field = key.replace("area_infor_", "")
+                    if field in ["fan", "open", "close", "port"]:   # 숫자 필드
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            pass
+                    current.setdefault("area_infor", {})[field] = value
+                elif key == "irrigation_mix_port":  # 숫자 필드
+                    try:
+                        current["irrigation_mix_port"] = int(value)
+                    except ValueError:
+                        current["irrigation_mix_port"] = value
                 else:
                     current[key] = value
 

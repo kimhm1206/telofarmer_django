@@ -66,7 +66,52 @@
 
 
             <label>테스트 모드</label>
-            <input type="checkbox" name="test_mode" {% if setting.test_mode %}checked{% endif %}>
+            <input type="checkbox" name="test_mode" {% if setting.test_mode %}checked{% endif %}><br>  <!-- ✅ 한 줄 뛰는 용도 -->
+
+            <label>추가 제어 항목 설정</label>
+            <button type="button" onclick="toggleExtraControl()" style="margin-left: 10px; padding: 4px 10px;">열기/닫기</button><br>
+
+            <div id="extra-control-area" style="display: none; margin-top: 10px; padding: 15px; border: 1px solid #ccc; border-radius: 8px;">
+            <label>관수 믹스 사용</label>
+            <input type="checkbox" name="irrigation_mix" {% if setting.irrigation_mix %}checked{% endif %}><br>
+
+            <label>관수 믹스 포트</label>
+                <select name="irrigation_mix_port">
+                    {% for i in "01234567" %}
+                    <option value="{{ i }}"{% if setting.irrigation_mix_port|stringformat:"s" == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select><br>
+
+                <label>영역 제어 사용</label>
+                <input type="checkbox" name="area_control" {% if setting.area_control %}checked{% endif %}><br>
+
+                <label>팬 포트</label>
+                <select name="area_infor_fan">
+                    {% for i in "01234567" %}
+                    <option value="{{ i }}"{% if setting.area_infor.fan|stringformat:"s" == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select><br>
+
+                <label>창문 열기 포트</label>
+                <select name="area_infor_open">
+                    {% for i in "01234567" %}
+                    <option value="{{ i }}"{% if setting.area_infor.open|stringformat:"s" == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select><br>
+
+                <label>창문 닫기 포트</label>
+                <select name="area_infor_close">
+                    {% for i in "01234567" %}
+                    <option value="{{ i }}"{% if setting.area_infor.close|stringformat:"s" == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select><br>
+
+                <label>MODBUS 주소</label>
+                <input type="text" name="area_infor_address" value="{{ setting.area_infor.address }}"><br>
+
+                <label>MODBUS 포트</label>
+                <input type="text" name="area_infor_port" value="{{ setting.area_infor.port }}"><br>
+            </div>
         </div>
 
         {{ setting|json_script:"setting-data" }}
@@ -120,6 +165,11 @@
             body: JSON.stringify(payload)
         });
     }
+
+    function toggleExtraControl() {
+        const area = document.getElementById("extra-control-area");
+        area.style.display = (area.style.display === "none") ? "block" : "none";
+      }
     
     function openIrrigationDetail(ch) {
         const area = document.getElementById("detail-area");

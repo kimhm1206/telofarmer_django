@@ -2,6 +2,100 @@
 {% block title %}대시보드{% endblock %}
 {% block content %}
 
+<style>
+  .desert-overview {
+    background: linear-gradient(135deg, #ffe0b2, #ffe9c8);
+    border-radius: 16px;
+    padding: 28px;
+    margin-top: 10px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    color: #5d4037;
+  }
+  .desert-overview__header {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    margin-bottom: 24px;
+  }
+  .desert-overview__title {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .desert-overview__time {
+    margin: 6px 0 0 0;
+    font-size: 15px;
+    color: #6d4c41;
+  }
+  .desert-overview__badge {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .desert-overview__cards {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .desert-card {
+    flex: 1 1 180px;
+    min-width: 180px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+  .desert-card__label {
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    color: #8d6e63;
+  }
+  .desert-card__value {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+  }
+  .desert-card__hint {
+    margin: 0;
+    font-size: 13px;
+    color: #a1887f;
+  }
+</style>
+
+<div class="desert-overview">
+  <div class="desert-overview__header">
+    <div>
+      <p class="desert-overview__title">사막 환경 현황</p>
+      <p class="desert-overview__time">현재 시각 <strong id="desert-clock">--:--</strong></p>
+    </div>
+    <div class="desert-overview__badge">실험 데이터 (더미)</div>
+  </div>
+  <div class="desert-overview__cards">
+    <div class="desert-card">
+      <div class="desert-card__label">온도</div>
+      <p class="desert-card__value">50℃</p>
+      <p class="desert-card__hint">목표 고온 유지</p>
+    </div>
+    <div class="desert-card">
+      <div class="desert-card__label">습도</div>
+      <p class="desert-card__value">30%</p>
+      <p class="desert-card__hint">건조 환경 안정</p>
+    </div>
+    <div class="desert-card">
+      <div class="desert-card__label">광량</div>
+      <p class="desert-card__value">1kW/m²</p>
+      <p class="desert-card__hint">강광 모드</p>
+    </div>
+  </div>
+</div>
+
 <div style="margin-top: 40px; margin-bottom: 20px;display: flex; align-items: center;">
   <h2 style="margin: 0;">💧 관수 현황</h2>
   <button onclick="alert('전체 수동 관수 시작'); sendManualToDjango('all')"style="
@@ -129,6 +223,18 @@
 <script src="https://bernii.github.io/gauge.js/dist/gauge.min.js"></script>
 <script>
 window.addEventListener("DOMContentLoaded", () => {
+  const clockEl = document.getElementById("desert-clock");
+  if (clockEl) {
+    const updateClock = () => {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      clockEl.textContent = `${hours}:${minutes}`;
+    };
+    updateClock();
+    setInterval(updateClock, 15 * 1000);
+  }
+
   // 🔧 Gauge.js 초기화
   {% for irr in irrigation_info %}
     {% if irr.mode == "sensor" %}

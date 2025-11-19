@@ -2,6 +2,196 @@
 {% block title %}대시보드{% endblock %}
 {% block content %}
 
+<style>
+  .desert-overview {
+    background: linear-gradient(135deg, #ffe0b2, #ffe9c8);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 10px;
+    margin-bottom: 22px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    color: #5d4037;
+  }
+  .desert-overview__header {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+    margin-bottom: 18px;
+  }
+  .desert-overview__title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .desert-overview__time {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    color: #6d4c41;
+  }
+  .desert-overview__cards {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 18px;
+    padding: 18px 22px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+  .desert-card {
+    flex: 1 1 220px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .desert-dial {
+    --dial-progress: 120deg;
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+      transparent 0deg 6deg,
+      rgba(93, 64, 55, 0.18) 6deg 8deg
+    );
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+  }
+  .desert-dial::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: conic-gradient(
+      rgba(255, 152, 0, 0.35) 0deg,
+      rgba(255, 152, 0, 0.35) var(--dial-progress),
+      rgba(255, 255, 255, 0.08) var(--dial-progress),
+      rgba(255, 255, 255, 0.08) 360deg
+    );
+    z-index: 1;
+  }
+  .desert-dial::after {
+    content: "";
+    position: absolute;
+    inset: 26px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #fff9f0, #ffefd5);
+    z-index: 2;
+  }
+  .desert-dial__value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: rgba(93, 64, 55, 0.75);
+    font-weight: 700;
+    z-index: 3;
+    text-align: center;
+  }
+  .desert-dial__label {
+    letter-spacing: 0.2em;
+    font-size: 11px;
+  }
+  .desert-dial__ticks {
+    width: 120px;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 10px;
+    color: rgba(93, 64, 55, 0.55);
+    letter-spacing: 0.04em;
+  }
+  .desert-dial__ticks li {
+    position: relative;
+  }
+  .desert-dial__ticks li::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 4px;
+    background: rgba(93, 64, 55, 0.4);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+</style>
+
+<div class="desert-overview">
+  <div class="desert-overview__header">
+    <div>
+      <p class="desert-overview__title">사막 환경 실험 현황</p>
+      <p class="desert-overview__time">현재 시각 <strong id="desert-clock">--:--</strong></p>
+    </div>
+  </div>
+  <div class="desert-overview__cards">
+    <div class="desert-card">
+      <div class="desert-dial" id="desert-temp-dial">
+        <span class="desert-dial__value">
+          <span class="desert-dial__label">온도</span>
+          <span class="sr-only" id="desert-temp">50.0℃</span>
+        </span>
+      </div>
+      <ul class="desert-dial__ticks">
+        <li>0</li>
+        <li>20</li>
+        <li>40</li>
+        <li>60</li>
+        <li>80</li>
+        <li>100</li>
+      </ul>
+    </div>
+    <div class="desert-card">
+      <div class="desert-dial" id="desert-humidity-dial">
+        <span class="desert-dial__value">
+          <span class="desert-dial__label">습도</span>
+          <span class="sr-only" id="desert-humidity">30.0%</span>
+        </span>
+      </div>
+      <ul class="desert-dial__ticks">
+        <li>0</li>
+        <li>20</li>
+        <li>40</li>
+        <li>60</li>
+        <li>80</li>
+        <li>100</li>
+      </ul>
+    </div>
+    <div class="desert-card">
+      <div class="desert-dial" id="desert-irradiance-dial">
+        <span class="desert-dial__value">
+          <span class="desert-dial__label">광량</span>
+          <span class="sr-only" id="desert-irradiance">1kW/m²</span>
+        </span>
+      </div>
+      <ul class="desert-dial__ticks">
+        <li>0</li>
+        <li>0.4</li>
+        <li>0.8</li>
+        <li>1.2</li>
+        <li>1.6</li>
+        <li>2.0</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 <div style="margin-top: 40px; margin-bottom: 20px;display: flex; align-items: center;">
   <h2 style="margin: 0;">💧 관수 현황</h2>
   <button onclick="alert('전체 수동 관수 시작'); sendManualToDjango('all')"style="
@@ -129,6 +319,57 @@
 <script src="https://bernii.github.io/gauge.js/dist/gauge.min.js"></script>
 <script>
 window.addEventListener("DOMContentLoaded", () => {
+  const clockEl = document.getElementById("desert-clock");
+  const tempEl = document.getElementById("desert-temp");
+  const humidityEl = document.getElementById("desert-humidity");
+  const irradianceEl = document.getElementById("desert-irradiance");
+  const tempDial = document.getElementById("desert-temp-dial");
+  const humidityDial = document.getElementById("desert-humidity-dial");
+  const irradianceDial = document.getElementById("desert-irradiance-dial");
+
+  const setDialProgress = (el, ratio) => {
+    if (!el) return;
+    const normalized = Math.max(0, Math.min(1, ratio));
+    el.style.setProperty("--dial-progress", `${(normalized * 360).toFixed(1)}deg`);
+  };
+
+  if (clockEl) {
+    let lastMinute = null;
+    const fixedIrradiance = 1.0;
+    if (irradianceEl) {
+      irradianceEl.textContent = `${fixedIrradiance.toFixed(1)}kW/m²`;
+    }
+    setDialProgress(irradianceDial, fixedIrradiance / 2);
+
+    const updateEnvironmentReadings = () => {
+      if (tempEl) {
+        const temperature = (49.7 + Math.random() * 0.61).toFixed(1);
+        tempEl.textContent = `${temperature}℃`;
+        setDialProgress(tempDial, parseFloat(temperature) / 100);
+      }
+      if (humidityEl) {
+        const humidity = (30 + Math.random() * 1.01).toFixed(1);
+        humidityEl.textContent = `${humidity}%`;
+        setDialProgress(humidityDial, parseFloat(humidity) / 100);
+      }
+    };
+
+    const updateClock = () => {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      clockEl.textContent = `${hours}:${minutes}`;
+
+      if (lastMinute !== minutes) {
+        lastMinute = minutes;
+        updateEnvironmentReadings();
+      }
+    };
+
+    updateClock();
+    setInterval(updateClock, 15 * 1000);
+  }
+
   // 🔧 Gauge.js 초기화
   {% for irr in irrigation_info %}
     {% if irr.mode == "sensor" %}

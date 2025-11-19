@@ -1,0 +1,6 @@
+Django
+channels
+daphne
+pandas
+pyserial
+whitenoise

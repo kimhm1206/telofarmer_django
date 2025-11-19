@@ -1,6 +1,8 @@
 # views.py
 import json, os, csv, platform, subprocess
 import shutil
+from typing import Any, Dict
+
 import pandas as pd
 from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404, HttpRequest
@@ -15,6 +17,16 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from .forms import TelofarmSignupForm
 import serial
+
+
+def load_setting_data() -> Dict[str, Any]:
+    """공통 설정 파일을 읽어오는 헬퍼 함수."""
+    try:
+        with open(SETTING_PATH, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError as exc:
+        raise Http404("설정 파일을 찾을 수 없습니다.") from exc
+
 
 def is_local_ip(request: HttpRequest) -> bool:
     ip = request.META.get("REMOTE_ADDR")
@@ -55,12 +67,8 @@ def login_process(request):
     return redirect("login_page")
 
 def setting_view(request):
-    setting_path = os.path.join(SETTING_PATH)
-    with open(setting_path, 'r', encoding='utf-8') as f:
-        setting = json.load(f)
-
     return render(request, 'settings.html', {
-        'setting': setting
+        'setting': load_setting_data()
     })
 
 def signup_view(request):
@@ -102,8 +110,7 @@ def system_update(request):
         return JsonResponse({"status": "error", "message": str(e)})
 
 def dashboard_view(request):
-    with open(SETTING_PATH, 'r', encoding='utf-8') as f:
-        setting = json.load(f)
+    setting = load_setting_data()
     now = datetime.now().time()
     today_str = datetime.now().strftime("%Y%m%d")
 

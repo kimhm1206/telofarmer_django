@@ -38,21 +38,74 @@
   .desert-card {
     flex: 1 1 150px;
     min-width: 150px;
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.9);
     border-radius: 14px;
-    padding: 15px;
+    padding: 12px 15px 18px;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
   }
   .desert-card__label {
-    font-size: 12px;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
     color: #8d6e63;
+    text-transform: uppercase;
   }
-  .desert-card__value {
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0;
+  .desert-card__dial {
+    display: flex;
+    justify-content: center;
+  }
+  .desert-dial {
+    --dial-progress: 120deg;
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+      transparent 0deg 6deg,
+      rgba(93, 64, 55, 0.18) 6deg 8deg
+    );
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+  }
+  .desert-dial::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: conic-gradient(
+      rgba(255, 152, 0, 0.35) 0deg,
+      rgba(255, 152, 0, 0.35) var(--dial-progress),
+      rgba(255, 255, 255, 0.08) var(--dial-progress),
+      rgba(255, 255, 255, 0.08) 360deg
+    );
+    z-index: 1;
+  }
+  .desert-dial::after {
+    content: "";
+    position: absolute;
+    inset: 26px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #fff9f0, #ffefd5);
+    z-index: 2;
+  }
+  .desert-dial__value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: rgba(93, 64, 55, 0.7);
+    font-weight: 600;
+    z-index: 3;
+    text-align: center;
+  }
+  .desert-dial__value small {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    color: rgba(93, 64, 55, 0.5);
   }
 </style>
 
@@ -66,15 +119,36 @@
   <div class="desert-overview__cards">
     <div class="desert-card">
       <div class="desert-card__label">온도</div>
-      <p class="desert-card__value" id="desert-temp">50.0℃</p>
+      <div class="desert-card__dial">
+        <div class="desert-dial" id="desert-temp-dial">
+          <span class="desert-dial__value">
+            <span id="desert-temp">50.0℃</span>
+            <small>0 ~ 100℃</small>
+          </span>
+        </div>
+      </div>
     </div>
     <div class="desert-card">
       <div class="desert-card__label">습도</div>
-      <p class="desert-card__value" id="desert-humidity">30.0%</p>
+      <div class="desert-card__dial">
+        <div class="desert-dial" id="desert-humidity-dial">
+          <span class="desert-dial__value">
+            <span id="desert-humidity">30.0%</span>
+            <small>0 ~ 100%</small>
+          </span>
+        </div>
+      </div>
     </div>
     <div class="desert-card">
       <div class="desert-card__label">광량</div>
-      <p class="desert-card__value" id="desert-irradiance">1kW/m²</p>
+      <div class="desert-card__dial">
+        <div class="desert-dial" id="desert-irradiance-dial">
+          <span class="desert-dial__value">
+            <span id="desert-irradiance">1kW/m²</span>
+            <small>0 ~ 2kW</small>
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -209,18 +283,35 @@ window.addEventListener("DOMContentLoaded", () => {
   const clockEl = document.getElementById("desert-clock");
   const tempEl = document.getElementById("desert-temp");
   const humidityEl = document.getElementById("desert-humidity");
+  const irradianceEl = document.getElementById("desert-irradiance");
+  const tempDial = document.getElementById("desert-temp-dial");
+  const humidityDial = document.getElementById("desert-humidity-dial");
+  const irradianceDial = document.getElementById("desert-irradiance-dial");
+
+  const setDialProgress = (el, ratio) => {
+    if (!el) return;
+    const normalized = Math.max(0, Math.min(1, ratio));
+    el.style.setProperty("--dial-progress", `${(normalized * 360).toFixed(1)}deg`);
+  };
 
   if (clockEl) {
     let lastMinute = null;
+    const fixedIrradiance = 1.0;
+    if (irradianceEl) {
+      irradianceEl.textContent = `${fixedIrradiance.toFixed(1)}kW/m²`;
+    }
+    setDialProgress(irradianceDial, fixedIrradiance / 2);
 
     const updateEnvironmentReadings = () => {
       if (tempEl) {
         const temperature = (49.7 + Math.random() * 0.61).toFixed(1);
         tempEl.textContent = `${temperature}℃`;
+        setDialProgress(tempDial, parseFloat(temperature) / 100);
       }
       if (humidityEl) {
         const humidity = (30 + Math.random() * 1.01).toFixed(1);
         humidityEl.textContent = `${humidity}%`;
+        setDialProgress(humidityDial, parseFloat(humidity) / 100);
       }
     };
 

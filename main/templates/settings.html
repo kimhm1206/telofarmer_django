@@ -50,11 +50,23 @@
         <div class="block" style="flex: 1;">
             <h3>TelofarmControl 설정</h3>
 
-            <label>릴레이보드 타입</label>
+            <label>TCP 릴레이보드 타입</label>
             <select name="relayboard_type" onchange="autoSave(this)">
                 <option value="4port" {% if setting.relayboard_type == '4port' %}selected{% endif %}>4PORT</option>
                 <option value="8port" {% if setting.relayboard_type == '8port' %}selected{% endif %}>8PORT</option>
             </select><br>
+
+            <label>릴레이 출력 방식</label>
+            <select name="relay_output_mode" onchange="autoSave(this)">
+                <option value="tcp" {% if setting.relay_output_mode == 'tcp' %}selected{% endif %}>TCP 릴레이보드</option>
+                <option value="gpio" {% if setting.relay_output_mode == 'gpio' %}selected{% endif %}>Raspberry Pi GPIO</option>
+            </select><br>
+
+            <label>TCP 릴레이 주소</label>
+            <input type="text" name="tcp_relay_address" value="{{ setting.tcp_relay.address }}"><br>
+
+            <label>TCP 릴레이 포트</label>
+            <input type="number" name="tcp_relay_port" value="{{ setting.tcp_relay.port }}"><br>
 
             <label>기상센서 포트</label>
             <select id="sensor_ports" name="sensor_ports" onchange="autoSave(this)">

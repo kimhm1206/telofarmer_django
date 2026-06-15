@@ -49,6 +49,12 @@ cd "%BASEDIR%\scripts" || (
 )
 git pull
 
+echo 📦 Python requirements 업데이트
+python -m pip install -r "%BASEDIR%\telofarmer_django\requirements.txt"
+if %errorlevel% neq 0 exit /b 1
+python -m pip install -r "%BASEDIR%\controller_project\requirements.txt"
+if %errorlevel% neq 0 exit /b 1
+
 echo ✅ 모든 프로젝트 최신 상태로 업데이트 완료
 
 timeout /t 2 >nul

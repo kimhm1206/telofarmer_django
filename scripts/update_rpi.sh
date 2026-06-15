@@ -14,6 +14,10 @@ echo "📥 Scripts 폴더 업데이트"
 cd "$BASEDIR/scripts" || { echo "❌ 디렉토리 이동 실패 (scripts)"; exit 1; }
 git pull || { echo "❌ git pull 실패 (Scripts)"; exit 1; }
 
+echo "📦 Python requirements 업데이트"
+pip3 install --break-system-packages -r "$BASEDIR/telofarmer_django/requirements.txt" || { echo "❌ Django requirements 설치 실패"; exit 1; }
+pip3 install --break-system-packages -r "$BASEDIR/controller_project/requirements.txt" || { echo "❌ Controller requirements 설치 실패"; exit 1; }
+
 echo "🔁 Daphne 서비스 재시작"
 sudo systemctl restart telofarm-daphne
 

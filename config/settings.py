@@ -17,10 +17,10 @@ import os, platform
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-if platform.system() == "Windows":
-    USER_DOCS = os.path.join(os.path.expanduser("~"), "Documents", "telofarm", "telofarmer")
-else:
+if platform.system() == "Linux":
     USER_DOCS = "/home/telofarm/Documents/telofarm/telofarmer"
+else:
+    USER_DOCS = os.path.join(os.path.expanduser("~"), "Documents", "telofarm", "telofarmer")
     
 DATA_DIR = os.path.join(USER_DOCS, "data")
 LOG_DIR = os.path.join(USER_DOCS, "log")

@@ -1,6 +1,5 @@
 # views.py
 import json, os, csv, platform, subprocess
-import shutil
 import pandas as pd
 from datetime import datetime, timedelta
 from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404, HttpRequest
@@ -9,12 +8,23 @@ from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.views.decorators.http import require_POST
-from django.core.files.storage import default_storage
 from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH,BASE_DIR
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from .forms import TelofarmSignupForm
+from .setting_store import apply_setting_update, load_setting_data, save_setting_data
 import serial
+
+
+def notify_controller_refresh():
+    from asgiref.sync import async_to_sync
+    from main.consumers import active_controller
+    import json as js
+
+    if active_controller:
+        async_to_sync(active_controller.send)(text_data=js.dumps({"cmd": "refresh"}))
+    else:
+        print("⚠ WebSocket 연결 없음 - 메시지 전송 생략")
 
 def is_local_ip(request: HttpRequest) -> bool:
     ip = request.META.get("REMOTE_ADDR")
@@ -55,12 +65,8 @@ def login_process(request):
     return redirect("login_page")
 
 def setting_view(request):
-    setting_path = os.path.join(SETTING_PATH)
-    with open(setting_path, 'r', encoding='utf-8') as f:
-        setting = json.load(f)
-
     return render(request, 'settings.html', {
-        'setting': setting
+        'setting': load_setting_data()
     })
 
 def signup_view(request):
@@ -524,52 +530,10 @@ def update_setting(request):
 
     try:
         new_data = json.loads(request.body)
-
-        with open(SETTING_PATH, 'r', encoding='utf-8') as f:
-            current = json.load(f)
-
-        for key, value in new_data.items():
-            if key in ["irrigationpanel", "ledpanel", "sensor_settings", "time_control"]:
-                for subkey, subvalue in value.items():
-                    if isinstance(subvalue, dict):
-                        current[key].setdefault(subkey, {}).update(subvalue)
-                    else:
-                        current[key][subkey] = subvalue
-            else:
-                if key.startswith("irrigation_channels_"):
-                    ch = key.split("_")[-1]
-                    current["irrigation_channels"][ch] = value
-                elif key.startswith("led_channels_"):
-                    ch = key.split("_")[-1]
-                    current["led_channels"][ch] = value
-                elif key.startswith("area_infor_"):
-                    field = key.replace("area_infor_", "")
-                    if field in ["fan", "open", "close", "port"]:   # 숫자 필드
-                        try:
-                            value = int(value)
-                        except ValueError:
-                            pass
-                    current.setdefault("area_infor", {})[field] = value
-                elif key == "irrigation_mix_port":  # 숫자 필드
-                    try:
-                        current["irrigation_mix_port"] = int(value)
-                    except ValueError:
-                        current["irrigation_mix_port"] = value
-                else:
-                    current[key] = value
-
-        with open(SETTING_PATH, 'w', encoding='utf-8') as f:
-            json.dump(current, f, indent=2, ensure_ascii=False)
-
-        # ✅ WebSocket 메시지 전송
-        from asgiref.sync import async_to_sync
-        from main.consumers import active_controller
-        import json as js
-        
-        if active_controller:
-            async_to_sync(active_controller.send)(text_data=js.dumps({"cmd": "refresh"}))
-        else:
-            print("⚠ WebSocket 연결 없음 - 메시지 전송 생략")
+        current = load_setting_data()
+        updated = apply_setting_update(current, new_data)
+        save_setting_data(updated)
+        notify_controller_refresh()
 
         return JsonResponse({"status": "success"})
 
@@ -583,10 +547,12 @@ def overwrite_setting(request):
         return JsonResponse({'error': 'No file uploaded'}, status=400)
 
     uploaded_file = request.FILES['file']
-    temp_path = default_storage.save('temp_uploaded.json', uploaded_file)
 
     try:
-        shutil.move(temp_path, SETTING_PATH)
+        raw = uploaded_file.read().decode("utf-8")
+        uploaded_setting = json.loads(raw)
+        save_setting_data(uploaded_setting)
+        notify_controller_refresh()
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

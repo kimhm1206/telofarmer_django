@@ -1,19 +1,23 @@
 # views.py
 import json, os, csv, platform, subprocess
+from functools import wraps
+from urllib import request as urlrequest
+from urllib.error import HTTPError, URLError
 import pandas as pd
 from datetime import datetime, timedelta
-from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404, HttpRequest
+from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404, HttpRequest, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from config.settings import SETTING_PATH,LOG_DIR,SYSLOG_DIR,SETTING_PATH,BASE_DIR
-from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.models import User
-from .forms import TelofarmSignupForm
 from .setting_store import apply_setting_update, load_setting_data, save_setting_data
 import serial
+
+AUTH_LOGIN_URL = "https://api.telofarm.net/auth/login"
+SESSION_USER_KEY = "app_user"
+SESSION_MANUAL_LOGIN_KEY = "manual_login_required"
 
 
 def notify_controller_refresh():
@@ -27,65 +31,170 @@ def notify_controller_refresh():
         print("⚠ WebSocket 연결 없음 - 메시지 전송 생략")
 
 def is_local_ip(request: HttpRequest) -> bool:
-    ip = request.META.get("REMOTE_ADDR")
+    ip = request.META.get("REMOTE_ADDR") or ""
     return ip.startswith("127.") or ip.startswith("192.168.") or ip == "localhost"
 
+def is_local_login_allowed(request: HttpRequest) -> bool:
+    return (not request.is_secure()) or is_local_ip(request)
+
+def get_app_user(request: HttpRequest):
+    return request.session.get(SESSION_USER_KEY)
+
+def set_app_user(request: HttpRequest, user_data):
+    request.session[SESSION_USER_KEY] = user_data
+    request.session.pop(SESSION_MANUAL_LOGIN_KEY, None)
+
+def set_local_master_user(request: HttpRequest):
+    set_app_user(request, {
+        "is_authenticated": True,
+        "username": "localuser",
+        "role": "admin",
+        "is_master": True,
+        "site_ids": [],
+        "auth_source": "local",
+    })
+
+def app_login_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not get_app_user(request):
+            return redirect("login_page")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def master_login_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        app_user = get_app_user(request)
+        if not app_user:
+            return redirect("login_page")
+        if not app_user.get("is_master"):
+            return HttpResponseForbidden("마스터 권한이 필요합니다.")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def login_with_telofarm_api(username, password):
+    payload = json.dumps({
+        "username": username,
+        "password": password,
+    }).encode("utf-8")
+    req = urlrequest.Request(
+        AUTH_LOGIN_URL,
+        data=payload,
+        headers={
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "curl/8.7.1",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlrequest.urlopen(req, timeout=8) as response:
+            return json.loads(response.read().decode("utf-8")), None
+    except HTTPError as exc:
+        try:
+            error_body = exc.read().decode("utf-8")
+        except Exception:
+            error_body = str(exc)
+        return None, f"로그인 실패: {error_body}"
+    except (URLError, TimeoutError) as exc:
+        return None, f"로그인 API 연결 실패: {exc}"
+    except Exception as exc:
+        return None, f"로그인 처리 실패: {exc}"
+
+def build_api_session_user(api_user, allowed_site_ids):
+    role = api_user.get("role")
+    site_ids = api_user.get("site_ids") or []
+    if not isinstance(site_ids, list):
+        site_ids = []
+
+    if role == "admin":
+        is_master = True
+    elif role == "user":
+        allowed = set(allowed_site_ids or [])
+        matched = allowed.intersection(str(site_id) for site_id in site_ids)
+        if not allowed:
+            return None, "이 사이트는 관리자만 로그인할 수 있습니다."
+        if not matched:
+            return None, "이 사이트에 허용된 계정이 아닙니다."
+        is_master = False
+    else:
+        return None, "허용되지 않은 계정 권한입니다."
+
+    return {
+        "is_authenticated": True,
+        "username": api_user.get("username") or "",
+        "email": api_user.get("email") or "",
+        "role": role,
+        "is_master": is_master,
+        "site_ids": site_ids,
+        "user_id": api_user.get("user_id"),
+        "access_token": api_user.get("access_token"),
+        "refresh_token": api_user.get("refresh_token"),
+        "auth_source": "telofarm_api",
+    }, None
+
+def request_has_master_payload(data):
+    return isinstance(data, dict) and "master" in data
+
 def logout_view(request):
-    logout(request)  # 세션 제거 → sessionid 쿠키도 삭제됨
+    request.session.flush()
+    request.session[SESSION_MANUAL_LOGIN_KEY] = True
     return redirect("login_page")
 
 def login_page(request):
-    if request.user.is_authenticated:
+    if get_app_user(request):
         return redirect("dashboard_view")
 
-    if not request.is_secure():
-        # HTTP 접속 → localuser 자동 로그인 (로컬 서버 등에서)
-        user, created = User.objects.get_or_create(username="localuser")
-        user.set_unusable_password()
-        user.save()
-        login(request, user)
+    if is_local_login_allowed(request) and not request.session.get(SESSION_MANUAL_LOGIN_KEY):
+        set_local_master_user(request)
         return redirect("dashboard_view")
 
-    # HTTPS 접근 시 로그인 폼 보여주기
     return render(request, "login.html")
 
 def login_process(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        username = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
 
-        user = authenticate(request, username=username, password=password)
-        if user:
-            login(request, user)
+        if not username and not password and is_local_login_allowed(request):
+            set_local_master_user(request)
             return redirect("dashboard_view")
-        else:
+
+        if not username or not password:
             return render(request, "login.html", {"login_failed": True})
 
-    # ✅ GET 요청이면 login 페이지로 리다이렉트
+        setting = load_setting_data()
+        allowed_site_ids = setting.get("master", {}).get("site_ids", [])
+        api_user, error = login_with_telofarm_api(username, password)
+        if error:
+            messages.error(request, error)
+            return render(request, "login.html", {"login_failed": True})
+
+        session_user, error = build_api_session_user(api_user, allowed_site_ids)
+        if error:
+            messages.error(request, error)
+            return render(request, "login.html", {"login_failed": True})
+
+        set_app_user(request, session_user)
+        return redirect("dashboard_view")
+
     return redirect("login_page")
 
+@app_login_required
 def setting_view(request):
     return render(request, 'settings.html', {
         'setting': load_setting_data()
     })
 
-def signup_view(request):
-    if request.method == "POST":
-        form = TelofarmSignupForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
-            user.save()
-            messages.success(request, "회원가입이 완료되었습니다. 로그인 해주세요.")
-            return redirect("login_page")
-        else:
-            for error in form.errors.values():
-                messages.error(request, error)
-    else:
-        form = TelofarmSignupForm()
-    return render(request, "signup.html", {"form": form})
+@master_login_required
+def master_setting_view(request):
+    return render(request, 'master_settings.html', {
+        'setting': load_setting_data()
+    })
 
-
+@master_login_required
 def system_update(request):
     try:
         os_type = platform.system().lower()
@@ -107,6 +216,7 @@ def system_update(request):
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
 
+@app_login_required
 def dashboard_view(request):
     with open(SETTING_PATH, 'r', encoding='utf-8') as f:
         setting = json.load(f)
@@ -188,6 +298,7 @@ def dashboard_view(request):
         'led_active': led_active
     })
 
+@app_login_required
 def api_testdata(request):
     ch = request.GET.get("ch", "1").replace("ch", "")
     file_path = os.path.join(LOG_DIR, "test", f"{ch}ch_test.csv")
@@ -210,6 +321,7 @@ def api_testdata(request):
     except Exception as e:
         return JsonResponse({"error": f"처리 실패: {str(e)}"}, status=500)
 
+@app_login_required
 def api_logdata(request):
     ch_raw = request.GET.get("ch", "1")
     ch = ch_raw.replace("ch", "")
@@ -346,6 +458,7 @@ def make_chart_data(df):
     }
 
 
+@app_login_required
 def data_view(request):
     today = datetime.now().strftime("%Y%m%d")
     panels = []
@@ -385,6 +498,7 @@ def data_view(request):
     return render(request, "data.html", {"panels": panels})
 
 
+@app_login_required
 def log_view(request):
     today = datetime.now().strftime("%Y%m%d")
 
@@ -450,6 +564,7 @@ def log_view(request):
         "system_log": system_log
     })
 
+@app_login_required
 def log_refresh(request):
     today = datetime.now().strftime("%Y%m%d")
 
@@ -511,6 +626,7 @@ def log_refresh(request):
 
     return JsonResponse({"html": html})
 
+@app_login_required
 def download_log(request, channel):
     today = datetime.now().strftime("%Y%m%d")
     csv_names = [
@@ -530,6 +646,12 @@ def update_setting(request):
 
     try:
         new_data = json.loads(request.body)
+        app_user = get_app_user(request)
+        if not app_user:
+            return HttpResponseBadRequest("Login required")
+        if request_has_master_payload(new_data) and not app_user.get("is_master"):
+            return HttpResponseForbidden("마스터 권한이 필요합니다.")
+
         current = load_setting_data()
         updated = apply_setting_update(current, new_data)
         save_setting_data(updated)
@@ -543,6 +665,12 @@ def update_setting(request):
 @csrf_exempt
 @require_POST
 def overwrite_setting(request):
+    app_user = get_app_user(request)
+    if not app_user:
+        return JsonResponse({'error': 'Login required'}, status=401)
+    if not app_user.get("is_master"):
+        return JsonResponse({'error': 'Master permission required'}, status=403)
+
     if 'file' not in request.FILES:
         return JsonResponse({'error': 'No file uploaded'}, status=400)
 
@@ -559,9 +687,12 @@ def overwrite_setting(request):
 
 @csrf_exempt
 def download_setting(request):
+    if not get_app_user(request):
+        return redirect("login_page")
     if os.path.exists(SETTING_PATH):
         return FileResponse(open(SETTING_PATH, 'rb'), as_attachment=True, filename="setting.json")
 
+@app_login_required
 def test_port(request):
     port = request.GET.get("port")
     if not port:
@@ -601,6 +732,7 @@ def test_port(request):
         print("포트 테스트 실패:", e)
         return JsonResponse({"success": False})
     
+@app_login_required
 def weather_data_page(request):
     date_str = request.GET.get("date")
     if not date_str:
@@ -621,6 +753,7 @@ def weather_data_page(request):
     })
     
     
+@app_login_required
 def download_weather_csv(request):
     date_str = request.GET.get("date")
     if not date_str:

@@ -33,3 +33,15 @@ def latest_weather_context(request):
         print("기상 로그 파싱 오류:", e)
 
     return {"latest_weather": None}
+
+
+def app_user_context(request):
+    app_user = request.session.get("app_user") or {}
+    return {
+        "app_user": {
+            "is_authenticated": bool(app_user.get("is_authenticated")),
+            "username": app_user.get("username", ""),
+            "role": app_user.get("role", ""),
+            "is_master": bool(app_user.get("is_master")),
+        }
+    }

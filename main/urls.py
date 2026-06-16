@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('settings/', views.setting_view, name='setting_view'),
+    path('settings/master/', views.master_setting_view, name='master_setting_view'),
     path('settings/update/', views.update_setting, name='update_setting'),
     path('settings/overwrite/', views.overwrite_setting, name='overwrite_setting'),
     path('settings/download/', views.download_setting, name='download_setting'),
@@ -18,7 +19,6 @@ urlpatterns = [
     path("log/download/<int:channel>/", views.download_log),
     path("api/logdata/", views.api_logdata, name="api_logdata"),
     path("api/testdata/", views.api_testdata, name="api_testdata"),
-    path("signup/", views.signup_view, name="signup"),
     path("logout/", views.logout_view, name="logout"),
     path("system_update/", views.system_update, name="system_update"),
     path("settings/test_port", views.test_port, name="test_port"),

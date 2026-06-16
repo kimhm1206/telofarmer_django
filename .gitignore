@@ -22,6 +22,7 @@ __pycache__/
 # 로그/환경 설정 파일
 *.log
 *.env
+db.sqlite3
 .DS_Store
 
 # 기타 시스템 파일

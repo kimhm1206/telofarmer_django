@@ -1,5 +1,5 @@
 {% load static %}
-{% if not user.is_authenticated %}
+{% if not app_user.is_authenticated %}
   <script>
     alert("로그인이 필요합니다.");
     window.location.href = "/login/";
@@ -87,6 +87,9 @@
                 <a href="/log/">💿 로그</a>
                 <a href="/weatherdata/">🌦 기상데이터</a> <!-- ✅ 추가된 부분 -->
                 <a href="/settings/">⚙️ 설정</a>
+                {% if app_user.is_master %}
+                <a href="/settings/master/">마스터 설정</a>
+                {% endif %}
             </div>
             <!-- status-bar 내부에 로그아웃 버튼 추가 -->
             <div class="status-bar">
@@ -103,7 +106,7 @@
             </div>
             {% endif %}
             
-                <div class="user-info" style="margin-left: 40px;">접속자: {{ user.username }}</div>
+                <div class="user-info" style="margin-left: 40px;">접속자: {{ app_user.username }} ({{ app_user.role }})</div>
                 <div>
                     <form method="post" action="{% url 'logout' %}" style="display:inline;">
                         {% csrf_token %}

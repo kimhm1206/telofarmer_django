@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}마스터 설정{% endblock %}
+
+{% block style %}
+<style>
+    .page-title {
+        margin-top: 0;
+    }
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 560px);
+        gap: 20px;
+    }
+    .block {
+        background: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    label {
+        display: inline-block;
+        width: 190px;
+        margin-top: 12px;
+        vertical-align: top;
+    }
+    select,
+    textarea {
+        padding: 4px;
+        width: 220px;
+        margin-bottom: 10px;
+    }
+    textarea {
+        width: 320px;
+        resize: vertical;
+    }
+    .hint {
+        color: #666;
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 4px 0 14px 194px;
+    }
+    .save-state {
+        min-height: 22px;
+        color: #287a3e;
+        font-weight: bold;
+        margin-top: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="page-title">
+    <img src="{% static 'dd.png' %}" alt="logo" style="height: 36px; vertical-align: middle; margin-right: 1px;">
+    Telofarm Control System 마스터 설정
+</h2>
+
+<div class="layout">
+    <div class="block">
+        <h3>기능 사용 범위</h3>
+
+        <label>릴레이 제어 타입</label>
+        <select name="relay_control_type" onchange="saveMasterSetting(this)">
+            <option value="tcp" {% if setting.master.relay_control_type == 'tcp' %}selected{% endif %}>TCP 릴레이보드</option>
+            <option value="gpio" {% if setting.master.relay_control_type == 'gpio' %}selected{% endif %}>Raspberry Pi GPIO</option>
+        </select>
+        <div class="hint">일반 설정 화면의 릴레이 연결 항목과 실제 컨트롤러 출력 방식을 결정합니다.</div>
+
+        <label>외부 센서 사용</label>
+        <input type="checkbox" name="external_sensor_enabled" onchange="saveMasterSetting(this)" {% if setting.master.external_sensor_enabled %}checked{% endif %}>
+        <div class="hint">현재 프로젝트 내부 RS485 센서 포트, 센서제어 설정, 기상데이터 수집 사용 여부입니다.</div>
+
+        <label>추가 제어 항목 사용</label>
+        <input type="checkbox" name="extra_control_enabled" onchange="saveMasterSetting(this)" {% if setting.master.extra_control_enabled %}checked{% endif %}>
+        <div class="hint">관수 믹스, 영역 제어, 팬/창문 제어 같은 확장 설정을 일반 설정 화면에 노출합니다.</div>
+
+        <label>허용 사이트 ID</label>
+        <textarea name="site_ids" rows="5" onchange="saveMasterSetting(this)">{% for site_id in setting.master.site_ids %}{{ site_id }}{% if not forloop.last %}
+{% endif %}{% endfor %}</textarea>
+        <div class="hint">한 줄에 하나씩 입력합니다. 비워두면 관리자만 로그인할 수 있습니다.</div>
+
+        <div id="save-state" class="save-state"></div>
+    </div>
+</div>
+
+<script>
+    function saveMasterSetting(element) {
+        const value = element.type === "checkbox" ? element.checked : element.value;
+        const payload = {
+            master: {
+                [element.name]: value
+            }
+        };
+        const saveState = document.getElementById("save-state");
+
+        fetch("/settings/update/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("저장 실패");
+            }
+            saveState.textContent = "저장 완료";
+            setTimeout(() => saveState.textContent = "", 1800);
+        })
+        .catch(error => {
+            saveState.textContent = error.message;
+            saveState.style.color = "#c0392b";
+        });
+    }
+</script>
+{% endblock %}

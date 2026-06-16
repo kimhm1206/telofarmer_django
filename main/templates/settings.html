@@ -50,12 +50,24 @@
         <div class="block" style="flex: 1;">
             <h3>TelofarmControl 설정</h3>
 
-            <label>릴레이보드 타입</label>
+            <label>릴레이 제어 타입</label>
+            <input type="text" value="{% if setting.master.relay_control_type == 'gpio' %}Raspberry Pi GPIO{% else %}TCP 릴레이보드{% endif %}" disabled><br>
+
+            {% if setting.master.relay_control_type == 'tcp' %}
+            <label>TCP 릴레이보드 타입</label>
             <select name="relayboard_type" onchange="autoSave(this)">
                 <option value="4port" {% if setting.relayboard_type == '4port' %}selected{% endif %}>4PORT</option>
                 <option value="8port" {% if setting.relayboard_type == '8port' %}selected{% endif %}>8PORT</option>
             </select><br>
 
+            <label>TCP 릴레이 주소</label>
+            <input type="text" name="tcp_relay_address" value="{{ setting.tcp_relay.address }}"><br>
+
+            <label>TCP 릴레이 포트</label>
+            <input type="number" name="tcp_relay_port" value="{{ setting.tcp_relay.port }}"><br>
+            {% endif %}
+
+            {% if setting.master.external_sensor_enabled %}
             <label>기상센서 포트</label>
             <select id="sensor_ports" name="sensor_ports" onchange="autoSave(this)">
                 {% for i in "123456789" %}
@@ -63,11 +75,13 @@
                 {% endfor %}
             </select>
             <button type="button" id="test-port-btn" style="margin-left: 8px; padding: 2px 10px; border: none; border-radius: 4px; background-color: #ccc; color: white;">테스트</button><br>
+            {% endif %}
 
 
             <label>테스트 모드</label>
             <input type="checkbox" name="test_mode" {% if setting.test_mode %}checked{% endif %}><br>  <!-- ✅ 한 줄 뛰는 용도 -->
 
+            {% if setting.master.extra_control_enabled %}
             <label>추가 제어 항목 설정</label>
             <button type="button" onclick="toggleExtraControl()" style="margin-left: 10px; padding: 4px 10px;">열기/닫기</button><br>
 
@@ -112,6 +126,7 @@
                 <label>MODBUS 포트</label>
                 <input type="text" name="area_infor_port" value="{{ setting.area_infor.port }}"><br>
             </div>
+            {% endif %}
         </div>
 
         {{ setting|json_script:"setting-data" }}
@@ -174,13 +189,45 @@
     function openIrrigationDetail(ch) {
         const area = document.getElementById("detail-area");
         const setting = JSON.parse(document.getElementById('setting-data').textContent);
+        const master = setting.master || {};
+        const externalSensorEnabled = master.external_sensor_enabled !== false;
     
         const irrigationTime = setting.irrigationpanel.irrigation_time[ch] || 100;
         const relayPort = setting.irrigationpanel.relay_port_mapping[ch] || 0;
-        const mode = setting.irrigationpanel.control_mode[ch] || "timer";
+        const savedMode = setting.irrigationpanel.control_mode[ch] || "timer";
+        const mode = externalSensorEnabled ? savedMode : "timer";
         const timeList = setting.time_control[ch] || ["10:00", "12:00", "14:00", "16:00"];
         const sensor = setting.sensor_settings[ch] || {};
-    
+        const sensorModeHtml = externalSensorEnabled ? `
+                        <label style="margin-left: 20px;">
+                            <input type="radio" name="control_mode_${ch}" value="sensor" ${mode === 'sensor' ? 'checked' : ''}> 센서제어
+                        </label>
+                    ` : "";
+        const sensorCardHtml = externalSensorEnabled ? `
+                <div class="block" style="flex:1; position: relative; padding-bottom: 80px;">
+                    <h4>센서제어 설정</h4>
+                    <label>목표 수분값</label>
+                    <input type="number" name="target_moisture_${ch}" value="${sensor.target || 175}"><br>
+
+                    <label>데이터 수집 시작</label>
+                    <input type="time" name="start_time_${ch}" value="${sensor.start_time || '09:00'}"> ~
+                    <input type="time" name="end_time_${ch}" value="${sensor.end_time || '17:30'}"><br>
+
+                    <label>Nf Value</label>
+                    <input type="number" name="nf_value_${ch}" value="${sensor.nf_value || 68}"><br>
+
+                    <label>데이터 테이블 이름</label>
+                    <input type="text" name="data_table_${ch}" value="${sensor.data_table || ''}"><br>
+
+                    <label>모듈 리스트</label><br>
+                    <textarea id="modules_${ch}" name="modules_${ch}" rows="4" cols="40"></textarea><br>
+
+                    <div style="position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px;">
+                        <button type="button" class="apply-btn"  onclick="saveIrrigationSensor(${ch})">💾 적용</button>
+                    </div>
+                </div>
+        ` : "";
+
         area.innerHTML = `
             <div class="header-with-button" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>관수 ${ch}채널 설정</h3>
@@ -194,9 +241,7 @@
                         <label>
                             <input type="radio" name="control_mode_${ch}" value="timer" ${mode === 'timer' ? 'checked' : ''}> 시간제어
                         </label>
-                        <label style="margin-left: 20px;">
-                            <input type="radio" name="control_mode_${ch}" value="sensor" ${mode === 'sensor' ? 'checked' : ''}> 센서제어
-                        </label>
+                        ${sensorModeHtml}
                     </div>
                     <label>관수시간 (초)</label>
                     <input type="number" name="irrigation_time_${ch}" value="${irrigationTime}"><br>
@@ -226,34 +271,15 @@
                         <button type="button" class="apply-btn"  onclick="saveIrrigationTime(${ch})">💾 적용</button>
                     </div>
                 </div>
-    
-                <div class="block" style="flex:1; position: relative; padding-bottom: 80px;">
-                    <h4>센서제어 설정</h4>
-                    <label>목표 수분값</label>
-                    <input type="number" name="target_moisture_${ch}" value="${sensor.target || 175}"><br>
-    
-                    <label>데이터 수집 시작</label>
-                    <input type="time" name="start_time_${ch}" value="${sensor.start_time || '09:00'}"> ~
-                    <input type="time" name="end_time_${ch}" value="${sensor.end_time || '17:30'}"><br>
-    
-                    <label>Nf Value</label>
-                    <input type="number" name="nf_value_${ch}" value="${sensor.nf_value || 68}"><br>
-    
-                    <label>데이터 테이블 이름</label>
-                    <input type="text" name="data_table_${ch}" value="${sensor.data_table || ''}"><br>
-    
-                    <label>모듈 리스트</label><br>
-                    <textarea id="modules_${ch}" name="modules_${ch}" rows="4" cols="40"></textarea><br>
-    
-                    <div style="position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px;">
-                        <button type="button" class="apply-btn"  onclick="saveIrrigationSensor(${ch})">💾 적용</button>
-                    </div>
-                </div>
+                ${sensorCardHtml}
             </div>
         `;
 
         setTimeout(() => {
-            document.getElementById(`modules_${ch}`).value = sensor.modules || '';
+            const modulesElement = document.getElementById(`modules_${ch}`);
+            if (modulesElement) {
+                modulesElement.value = sensor.modules || '';
+            }
         }, 0);
     }
 
@@ -447,28 +473,31 @@
         .catch(err => alert(`❌ 오류: ${err.message}`));
     }
 
-    document.getElementById('test-port-btn').addEventListener('click', async function() {
-        const port = document.getElementById('sensor_ports').value;
-        const button = this;
+    const testPortButton = document.getElementById('test-port-btn');
+    if (testPortButton) {
+        testPortButton.addEventListener('click', async function() {
+            const port = document.getElementById('sensor_ports').value;
+            const button = this;
     
-        button.textContent = "🔍 확인 중...";
-        button.style.backgroundColor = "#ccc";
+            button.textContent = "🔍 확인 중...";
+            button.style.backgroundColor = "#ccc";
     
-        try {
-            const response = await fetch(`/settings/test_port?port=${port}`);
-            const result = await response.json();
-            if (result.success) {
-                button.textContent = "✅ 연결 성공";
-                button.style.backgroundColor = "green";
-            } else {
-                button.textContent = "❌ 연결 실패";
+            try {
+                const response = await fetch(`/settings/test_port?port=${port}`);
+                const result = await response.json();
+                if (result.success) {
+                    button.textContent = "✅ 연결 성공";
+                    button.style.backgroundColor = "green";
+                } else {
+                    button.textContent = "❌ 연결 실패";
+                    button.style.backgroundColor = "red";
+                }
+            } catch (error) {
+                button.textContent = "⚠ 오류 발생";
                 button.style.backgroundColor = "red";
             }
-        } catch (error) {
-            button.textContent = "⚠ 오류 발생";
-            button.style.backgroundColor = "red";
-        }
-    });
+        });
+    }
 
     {% comment %} document.getElementById("save-btn").addEventListener("click", saveSettings); {% endcomment %}
     {% comment %} document.getElementById("load-btn").addEventListener("click", loadSettings); {% endcomment %}

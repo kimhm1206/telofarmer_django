@@ -63,14 +63,13 @@
         <form method="post" action="{% url 'login_process' %}">
             {% csrf_token %}
             <label>Username</label>
-            <input type="text" name="username" required>
+            <input type="text" name="username">
         
             <label>Password</label>
-            <input type="password" name="password" required>
+            <input type="password" name="password">
         
             <div class="btn-block">
                 <button style="background-color: black; color: white;" type="submit">Login</button>
-                <button type="button" onclick="window.location.href='{% url 'signup' %}'">Sign up</button>
             </div>
         </form>
     </div>
